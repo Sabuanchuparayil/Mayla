@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Inter, Playfair_Display, Amaranth } from 'next/font/google';
 import { PwaRegister } from '@/components/pwa-register';
 import './globals.css';
 
@@ -11,6 +11,13 @@ const inter = Inter({
 
 const playfair = Playfair_Display({
   variable: '--font-playfair',
+  subsets: ['latin'],
+  display: 'swap',
+});
+
+const amaranth = Amaranth({
+  variable: '--font-amaranth',
+  weight: ['700'],
   subsets: ['latin'],
   display: 'swap',
 });
@@ -43,7 +50,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} h-full`}
+      className={`${inter.variable} ${playfair.variable} ${amaranth.variable} h-full`}
     >
       <body className="min-h-full flex flex-col antialiased">
         <PwaRegister />

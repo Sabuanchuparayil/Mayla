@@ -10,8 +10,8 @@ export default async function OnboardingLayout({ children }: { children: React.R
       <div className="mx-auto flex h-16 max-w-6xl items-center px-5">
         <Link href="/" className="flex items-center gap-2">
           <MaylaIcon className="h-6 w-6 text-primary" />
-          <span className="font-[family-name:var(--font-playfair)] text-lg font-semibold gradient-text">
-            Mayla
+          <span className="font-[family-name:var(--font-amaranth)] text-lg font-bold gradient-text">
+            mayla
           </span>
         </Link>
       </div>

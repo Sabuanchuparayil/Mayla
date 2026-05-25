@@ -2,6 +2,25 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import { COOKIE_NAMES } from '@/lib/constants';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
+function buildCsp(nonce: string): string {
+  const directives = [
+    "default-src 'self'",
+    isDev
+      ? `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval'`
+      : `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'strict-dynamic'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' ws: wss:",
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "frame-ancestors 'self'",
+  ];
+  return directives.join('; ');
+}
+
 const publicPaths = [
   '/',
   '/login',
@@ -76,6 +95,20 @@ async function verifyAccessTokenEdge(token: string) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  const csp = buildCsp(nonce);
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  function applyHeaders(response: NextResponse): NextResponse {
+    response.headers.set('x-nonce', nonce);
+    response.headers.set('Content-Security-Policy', csp);
+    return response;
+  }
+
   const accessToken =
     request.cookies.get(COOKIE_NAMES.accessToken)?.value ??
     request.headers.get('authorization')?.replace('Bearer ', '');
@@ -86,9 +119,14 @@ export async function middleware(request: NextRequest) {
     const origin = request.headers.get('origin');
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (origin && appUrl && !origin.startsWith(appUrl)) {
-      return NextResponse.json(
-        { success: false, error: { code: 'FORBIDDEN', message: 'Invalid origin' } },
-        { status: 403 },
+      return applyHeaders(
+        withPathname(
+          NextResponse.json(
+            { success: false, error: { code: 'FORBIDDEN', message: 'Invalid origin' } },
+            { status: 403 },
+          ),
+          pathname,
+        ),
       );
     }
   }
@@ -97,33 +135,51 @@ export async function middleware(request: NextRequest) {
     if (session && isAuthPath(pathname)) {
       const raw = request.nextUrl.searchParams.get('redirect') ?? '/dashboard';
       const redirect = isSafeRedirect(raw) ? raw : '/dashboard';
-      return withPathname(NextResponse.redirect(new URL(redirect, request.url)), pathname);
+      return applyHeaders(
+        withPathname(NextResponse.redirect(new URL(redirect, request.url)), pathname),
+      );
     }
-    return withPathname(NextResponse.next(), pathname);
+    return applyHeaders(
+      withPathname(
+        NextResponse.next({ request: { headers: requestHeaders } }),
+        pathname,
+      ),
+    );
   }
 
   if (!session) {
     if (isApiPath(pathname)) {
-      return withPathname(
-        NextResponse.json(
-          { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-          { status: 401 },
+      return applyHeaders(
+        withPathname(
+          NextResponse.json(
+            { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+            { status: 401 },
+          ),
+          pathname,
         ),
-        pathname,
       );
     }
     if (isProtectedPage(pathname)) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
-      return withPathname(NextResponse.redirect(loginUrl), pathname);
+      return applyHeaders(
+        withPathname(NextResponse.redirect(loginUrl), pathname),
+      );
     }
   }
 
   if (session && pathname.startsWith('/admin') && session.role !== 'ADMIN') {
-    return withPathname(NextResponse.redirect(new URL('/dashboard', request.url)), pathname);
+    return applyHeaders(
+      withPathname(NextResponse.redirect(new URL('/dashboard', request.url)), pathname),
+    );
   }
 
-  return withPathname(NextResponse.next(), pathname);
+  return applyHeaders(
+    withPathname(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+      pathname,
+    ),
+  );
 }
 
 export const config = {

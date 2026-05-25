@@ -50,12 +50,12 @@ export default async function HomePage() {
       </div>
 
       {/* Header */}
-      <header className="glass sticky top-0 z-50">
+      <header className="glass sticky top-0 z-50 border-b border-glass-border">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <div className="flex items-center gap-2">
             <MaylaIcon className="h-6 w-6 text-primary" />
-            <span className="font-[family-name:var(--font-playfair)] text-xl font-semibold gradient-text">
-              Mayla
+            <span className="font-[family-name:var(--font-amaranth)] text-xl font-bold gradient-text">
+              mayla
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -87,7 +87,7 @@ export default async function HomePage() {
 
         <h1 className="animate-fade-up delay-100 mt-8 max-w-3xl font-[family-name:var(--font-playfair)] text-5xl font-semibold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl">
           Where{' '}
-          <span className="gradient-text italic">real</span>
+          <span className="gradient-text italic inline border-0 outline-none">real</span>
           {' '}connections begin
         </h1>
 

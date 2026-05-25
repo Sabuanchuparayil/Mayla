@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-2 text-white">
             <MaylaIcon className="h-7 w-7" />
-            <span className="font-[family-name:var(--font-playfair)] text-2xl font-semibold">Mayla</span>
+            <span className="font-[family-name:var(--font-amaranth)] text-2xl font-bold gradient-text">mayla</span>
           </Link>
         </div>
 
