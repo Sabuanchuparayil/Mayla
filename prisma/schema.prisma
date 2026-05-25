@@ -7,21 +7,361 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  username  String   @unique
-  password  String
-  name      String?
-  avatarUrl String?
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ─── Enums ────────────────────────────────────────────────────────────────────────────────
 
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum Gender {
+  MAN
+  WOMAN
+  NON_BINARY
+  OTHER
+}
+
+enum SmokingStatus {
+  NEVER
+  OCCASIONALLY
+  REGULARLY
+  TRYING_TO_QUIT
+}
+
+enum DrinkingStatus {
+  NEVER
+  SOCIALLY
+  REGULARLY
+}
+
+enum RelationshipIntent {
+  LONG_TERM
+  SHORT_TERM
+  CASUAL
+  FRIENDSHIP
+  NOT_SURE
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SwipeAction {
+  LIKE
+  DISLIKE
+  SUPER_LIKE
+}
+
+enum MatchStatus {
+  ACTIVE
+  UNMATCHED
+  BLOCKED
+}
+
+enum ReportCategory {
+  FAKE_PROFILE
+  INAPPROPRIATE_CONTENT
+  HARASSMENT
+  SPAM
+  UNDERAGE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum SubscriptionPlan {
+  BASIC
+  GOLD
+  PLATINUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+// ─── Models ─────────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  email           String?   @unique
+  phone           String?   @unique
+  passwordHash    String?
+  role            UserRole  @default(USER)
+  isActive        Boolean   @default(true)
+  isBanned        Boolean   @default(false)
+  isDeleted       Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  profile         Profile?
+  devices         Device[]
+  photos          Photo[]
+  verifications   Verification[]
+  swipesGiven     Swipe[]        @relation("SwipesGiven")
+  swipesReceived  Swipe[]        @relation("SwipesReceived")
+  matchesAsUser1  Match[]        @relation("MatchUser1")
+  matchesAsUser2  Match[]        @relation("MatchUser2")
+  reportsGiven    Report[]       @relation("ReportsGiven")
+  reportsReceived Report[]       @relation("ReportsReceived")
+  blocksGiven     Block[]        @relation("BlocksGiven")
+  blocksReceived  Block[]        @relation("BlocksReceived")
+  subscriptions   Subscription[]
+  purchases       Purchase[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([isActive, isDeleted, isBanned])
   @@map("users")
 }
 
-enum Role {
-  USER
-  ADMIN
+model Device {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  platform   String   // ios | android
+  deviceId   String
+  appVersion String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("devices")
+}
+
+model Profile {
+  id                 String                                  @id @default(cuid())
+  userId             String                                  @unique
+  name               String
+  bio                String?
+  birthDate          DateTime
+  gender             Gender
+  latitude           Float?
+  longitude          Float?
+  /// PostGIS geography point — use raw SQL for spatial queries
+  location           Unsupported("geography(Point, 4326)")?
+  city               String?
+  country            String?
+  smokingStatus      SmokingStatus?
+  drinkingStatus     DrinkingStatus?
+  relationshipIntent RelationshipIntent?
+  height             Int?                                    // cm
+  occupation         String?
+  education          String?
+  interests          String[]
+  minAgePreference   Int                                     @default(18)
+  maxAgePreference   Int                                     @default(99)
+  maxDistance        Int                                     @default(50) // km
+  genderPreference   Gender[]
+  isVisible          Boolean                                 @default(true)
+  isComplete         Boolean                                 @default(false)
+  createdAt          DateTime                                @default(now())
+  updatedAt          DateTime                                @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profilePrompts ProfilePrompt[]
+
+  @@index([userId])
+  @@index([gender])
+  @@index([isVisible, isComplete])
+  @@map("profiles")
+}
+
+model Photo {
+  id         String   @id @default(cuid())
+  userId     String
+  url        String
+  storageKey String   @unique
+  order      Int      @default(0)
+  isMain     Boolean  @default(false)
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, order])
+  @@map("photos")
+}
+
+model Prompt {
+  id        String   @id @default(cuid())
+  question  String
+  category  String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profilePrompts ProfilePrompt[]
+
+  @@index([isActive])
+  @@map("prompts")
+}
+
+model ProfilePrompt {
+  id        String   @id @default(cuid())
+  profileId String
+  promptId  String
+  answer    String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  prompt  Prompt  @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, promptId])
+  @@index([profileId])
+  @@map("profile_prompts")
+}
+
+model Verification {
+  id               String             @id @default(cuid())
+  userId           String
+  status           VerificationStatus @default(PENDING)
+  selfieUrl        String?
+  selfieStorageKey String?
+  /// Face embedding vector from AWS Rekognition (128-dim)
+  embedding        Float[]
+  verifiedAt       DateTime?
+  rejectedReason   String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("verifications")
+}
+
+model Swipe {
+  id        String      @id @default(cuid())
+  swiperId  String
+  swipedId  String
+  action    SwipeAction
+  createdAt DateTime    @default(now())
+
+  swiper User @relation("SwipesGiven", fields: [swiperId], references: [id], onDelete: Cascade)
+  swiped User @relation("SwipesReceived", fields: [swipedId], references: [id], onDelete: Cascade)
+
+  @@unique([swiperId, swipedId])
+  @@index([swiperId])
+  @@index([swipedId])
+  @@index([swiperId, action])
+  @@map("swipes")
+}
+
+model Match {
+  id            String      @id @default(cuid())
+  user1Id       String
+  user2Id       String
+  status        MatchStatus @default(ACTIVE)
+  matchedAt     DateTime    @default(now())
+  unmatchedAt   DateTime?
+  unmatchedById String?     // userId of who unmatched
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user1 User @relation("MatchUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2 User @relation("MatchUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([status])
+  @@map("matches")
+}
+
+model Report {
+  id           String         @id @default(cuid())
+  reporterId   String
+  reportedId   String
+  category     ReportCategory
+  status       ReportStatus   @default(PENDING)
+  description  String?
+  reviewedAt   DateTime?
+  reviewedById String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  reporter User @relation("ReportsGiven", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("ReportsReceived", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId])
+  @@index([reportedId])
+  @@index([status])
+  @@map("reports")
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlocksGiven", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  plan                 SubscriptionPlan
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelledAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([stripeSubscriptionId])
+  @@map("subscriptions")
+}
+
+model Purchase {
+  id                    String   @id @default(cuid())
+  userId                String
+  productId             String
+  productType           String
+  stripePaymentIntentId String?  @unique
+  amount                Int      // cents
+  currency              String   @default("usd")
+  metadata              Json?
+  createdAt             DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stripePaymentIntentId])
+  @@map("purchases")
 }
