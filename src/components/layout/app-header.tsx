@@ -57,8 +57,8 @@ export function AppHeader({ user }: { user: SafeUser }) {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <div className="flex items-center gap-8">
             <Link href="/dashboard" className="flex items-center gap-2">
-              <MaylaIcon className="h-6 w-6 text-primary" />
-              <span className="font-[family-name:var(--font-amaranth)] text-lg font-bold gradient-text">
+              <MaylaIcon className="h-9 w-9 text-primary" />
+              <span className="font-[family-name:var(--font-amaranth)] text-xl font-bold gradient-text">
                 mayla
               </span>
             </Link>

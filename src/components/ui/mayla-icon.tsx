@@ -10,7 +10,7 @@ export function MaylaIcon({ className }: { className?: string }) {
       viewBox="0 0 512 512"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn('h-6 w-6', className)}
+      className={cn('h-8 w-8', className)}
     >
       <path
         d="M72 310C72 310 148 140 256 140C364 140 440 310 440 310"

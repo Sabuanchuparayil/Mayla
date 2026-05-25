@@ -42,9 +42,9 @@ export default async function HomePage() {
     <div className="flex min-h-screen flex-col mesh-bg" style={{ background: 'var(--gradient-hero)' }}>
       {/* Floating decorative elements */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <MaylaIcon className="absolute top-[15%] right-[10%] h-6 w-6 text-primary/8 animate-float" />
-        <MaylaIcon className="absolute top-[45%] left-[8%] h-4 w-4 text-accent/10 animate-float delay-200" />
-        <MaylaIcon className="absolute bottom-[25%] right-[15%] h-5 w-5 text-primary/6 animate-float delay-500" />
+        <MaylaIcon className="absolute top-[15%] right-[10%] h-10 w-10 text-primary/8 animate-float" />
+        <MaylaIcon className="absolute top-[45%] left-[8%] h-7 w-7 text-accent/10 animate-float delay-200" />
+        <MaylaIcon className="absolute bottom-[25%] right-[15%] h-8 w-8 text-primary/6 animate-float delay-500" />
         <SparkleIcon className="absolute top-[30%] left-[20%] h-5 w-5 text-accent/8 animate-float delay-300" />
         <SparkleIcon className="absolute bottom-[35%] right-[25%] h-4 w-4 text-primary/6 animate-float delay-700" />
       </div>
@@ -53,8 +53,8 @@ export default async function HomePage() {
       <header className="glass sticky top-0 z-50 border-b border-glass-border">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <div className="flex items-center gap-2">
-            <MaylaIcon className="h-6 w-6 text-primary" />
-            <span className="font-[family-name:var(--font-amaranth)] text-xl font-bold gradient-text">
+            <MaylaIcon className="h-9 w-9 text-primary" />
+            <span className="font-[family-name:var(--font-amaranth)] text-2xl font-bold gradient-text">
               mayla
             </span>
           </div>
@@ -99,13 +99,13 @@ export default async function HomePage() {
         <div className="animate-fade-up delay-300 mt-10 flex flex-wrap items-center justify-center gap-4">
           {user ? (
             <Button href="/discover" size="lg" variant="glow">
-              <MaylaIcon className="h-5 w-5" />
+              <MaylaIcon className="h-6 w-6" />
               Start discovering
             </Button>
           ) : (
             <>
               <Button href="/verify" size="lg" variant="glow">
-                <MaylaIcon className="h-5 w-5" />
+                <MaylaIcon className="h-6 w-6" />
                 Continue with phone
               </Button>
               <Button href="/signup" size="lg" variant="outline">
@@ -162,7 +162,7 @@ export default async function HomePage() {
           </span>
           <span className="h-4 w-px bg-warm-300" />
           <span className="flex items-center gap-1.5">
-            <MaylaIcon className="h-3.5 w-3.5" />
+            <MaylaIcon className="h-5 w-5" />
             100% real profiles
           </span>
           <span className="h-4 w-px bg-warm-300" />

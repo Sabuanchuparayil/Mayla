@@ -10,17 +10,17 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       >
         {/* Floating hearts */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <MaylaIcon className="absolute top-[20%] right-[15%] h-8 w-8 text-white/10 animate-float" />
-          <MaylaIcon className="absolute top-[50%] left-[10%] h-6 w-6 text-white/8 animate-float delay-200" />
-          <MaylaIcon className="absolute bottom-[30%] right-[25%] h-5 w-5 text-white/6 animate-float delay-500" />
-          <MaylaIcon className="absolute top-[35%] left-[30%] h-10 w-10 text-white/5 animate-float delay-300" />
+          <MaylaIcon className="absolute top-[20%] right-[15%] h-12 w-12 text-white/10 animate-float" />
+          <MaylaIcon className="absolute top-[50%] left-[10%] h-9 w-9 text-white/8 animate-float delay-200" />
+          <MaylaIcon className="absolute bottom-[30%] right-[25%] h-8 w-8 text-white/6 animate-float delay-500" />
+          <MaylaIcon className="absolute top-[35%] left-[30%] h-14 w-14 text-white/5 animate-float delay-300" />
           <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/10 to-transparent" />
         </div>
 
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-2 text-white">
-            <MaylaIcon className="h-7 w-7" />
-            <span className="font-[family-name:var(--font-amaranth)] text-2xl font-bold gradient-text">mayla</span>
+            <MaylaIcon className="h-10 w-10" />
+            <span className="font-[family-name:var(--font-amaranth)] text-3xl font-bold gradient-text">mayla</span>
           </Link>
         </div>
 
@@ -45,9 +45,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex flex-1 flex-col mesh-bg" style={{ background: 'var(--gradient-hero)' }}>
         <div className="flex h-16 items-center px-5 lg:hidden">
           <Link href="/" className="flex items-center gap-2">
-            <MaylaIcon className="h-6 w-6 text-primary" />
-            <span className="font-[family-name:var(--font-playfair)] text-lg font-semibold gradient-text">
-              Mayla
+            <MaylaIcon className="h-9 w-9 text-primary" />
+            <span className="font-[family-name:var(--font-amaranth)] text-xl font-bold gradient-text">
+              mayla
             </span>
           </Link>
         </div>
