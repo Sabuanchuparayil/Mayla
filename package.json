@@ -26,6 +26,7 @@
     "bullmq": "^5.77.3",
     "date-fns": "^4.3.0",
     "ioredis": "^5.10.1",
+    "jose": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "next": "16.2.6",
