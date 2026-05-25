@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { useChat, type Message } from '@/hooks/useChat';
+import { track } from '@/lib/analytics';
 
 interface MatchUser {
   id: string;
@@ -238,6 +239,7 @@ export default function ChatView({ matchId, userId, accessToken }: ChatViewProps
     const content = text.trim();
     if (!content) return;
     sendMessage(content, 'text');
+    track('message_sent', { type: 'text' });
     setText('');
     sendTyping(false);
     textareaRef.current?.focus();

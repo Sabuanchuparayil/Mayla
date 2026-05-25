@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 const schema = z.object({
   product: z.enum([
     'premium_monthly', 'premium_annual',
+    'platinum_monthly', 'platinum_annual',
     'boost', 'superlike_5', 'superlike_15', 'superlike_30',
   ]),
   successUrl: z.url().optional(),

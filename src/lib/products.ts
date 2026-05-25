@@ -2,6 +2,8 @@
 export type ProductKey =
   | 'premium_monthly'
   | 'premium_annual'
+  | 'platinum_monthly'
+  | 'platinum_annual'
   | 'boost'
   | 'superlike_5'
   | 'superlike_15'
@@ -41,6 +43,26 @@ export const PRODUCTS: Record<ProductKey, Product> = {
     plan: 'GOLD',
     priceEnv: 'STRIPE_PRICE_GOLD_ANNUAL',
     amount: 14399,
+    currency: 'usd',
+  },
+  platinum_monthly: {
+    key: 'platinum_monthly',
+    name: 'Mayla Platinum',
+    description: 'Everything in Gold, plus priority discovery, read receipts, and incognito mode',
+    type: 'subscription',
+    plan: 'PLATINUM',
+    priceEnv: 'STRIPE_PRICE_PLATINUM_MONTHLY',
+    amount: 2999,
+    currency: 'usd',
+  },
+  platinum_annual: {
+    key: 'platinum_annual',
+    name: 'Mayla Platinum Annual',
+    description: 'Everything in Platinum, billed annually (save 40%)',
+    type: 'subscription',
+    plan: 'PLATINUM',
+    priceEnv: 'STRIPE_PRICE_PLATINUM_ANNUAL',
+    amount: 21599,
     currency: 'usd',
   },
   boost: {
@@ -94,4 +116,23 @@ export function getPriceId(key: ProductKey): string {
   const priceId = process.env[product.priceEnv];
   if (!priceId) throw new Error(`Missing env var ${product.priceEnv}`);
   return priceId;
+}
+
+export type SubscriptionPlan = 'GOLD' | 'PLATINUM';
+
+// The monthly checkout product to use when upgrading to a given plan
+export const MONTHLY_PRODUCT_FOR_PLAN: Record<SubscriptionPlan, ProductKey> = {
+  GOLD: 'premium_monthly',
+  PLATINUM: 'platinum_monthly',
+};
+
+// Display-only formatted monthly price for a plan, e.g. "$19.99"
+export function getMonthlyPriceLabel(plan: SubscriptionPlan): string {
+  const product = PRODUCTS[MONTHLY_PRODUCT_FOR_PLAN[plan]];
+  const amount = (product.amount ?? 0) / 100;
+  const formatted = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: product.currency.toUpperCase(),
+  }).format(amount);
+  return formatted;
 }

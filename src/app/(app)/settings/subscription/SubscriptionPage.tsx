@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { SubscriptionData } from './page';
+import { track } from '@/lib/analytics';
 
 interface Props {
   initialData: SubscriptionData;
@@ -70,6 +71,10 @@ export default function SubscriptionPage({ initialData }: Props) {
   const [toast, setToast] = useState<{ message: string; color: 'green' | 'gray' } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    track('subscription_viewed', { plan: initialData.plan });
+  }, [initialData.plan]);
 
   // Show success/cancel toast from URL params
   useEffect(() => {

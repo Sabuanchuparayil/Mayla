@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useReducer } from 'react';
+import { useReducer, useRef } from 'react';
+import { track } from '@/lib/analytics';
 import Step1BasicInfo from './steps/Step1BasicInfo';
 import Step2Intent from './steps/Step2Intent';
 import Step3Prompts from './steps/Step3Prompts';
@@ -45,16 +46,33 @@ interface Prompt {
 interface Props {
   prompts: Prompt[];
   existingName: string | null;
+  initialStep?: number;
 }
 
-export default function OnboardingFlow({ prompts, existingName }: Props) {
+export default function OnboardingFlow({ prompts, existingName, initialStep = 1 }: Props) {
   const [state, dispatch] = useReducer(flowReducer, {
-    step: 1,
+    step: Math.min(Math.max(initialStep, 1), TOTAL_STEPS),
     direction: 'forward',
     profileName: existingName ?? '',
   });
 
-  const goNext = () => dispatch({ type: 'NEXT' });
+  // Fire onboarding_completed once if the user lands directly on the done step.
+  const completedTracked = useRef(false);
+  if (state.step === TOTAL_STEPS && !completedTracked.current) {
+    completedTracked.current = true;
+    track('onboarding_completed');
+  }
+
+  const goNext = () => {
+    const completedStep = state.step;
+    const nextStep = Math.min(completedStep + 1, TOTAL_STEPS);
+    track('onboarding_step_completed', { step: completedStep });
+    if (nextStep === TOTAL_STEPS && !completedTracked.current) {
+      completedTracked.current = true;
+      track('onboarding_completed');
+    }
+    dispatch({ type: 'NEXT' });
+  };
   const goPrev = () => dispatch({ type: 'PREV' });
   const setName = (name: string) => dispatch({ type: 'SET_NAME', name });
 

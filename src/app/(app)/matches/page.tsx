@@ -124,6 +124,10 @@ export default function MatchesPage() {
   );
   const conversations = matches.filter((m) => m.lastMessage);
 
+  const hasExpiringMatch = newMatches.some(
+    (m) => !m.lastMessage && daysLeft(m.matchedAt) > 0
+  );
+
   return (
     <div className="h-full overflow-y-auto bg-white">
       {/* Header */}
@@ -139,9 +143,14 @@ export default function MatchesPage() {
         <>
           {/* New Matches Section */}
           <div className="px-4 pt-4 pb-2">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            <h2 className={`text-sm font-semibold text-gray-500 uppercase tracking-wider ${hasExpiringMatch ? 'mb-1' : 'mb-3'}`}>
               New Matches
             </h2>
+            {hasExpiringMatch && (
+              <p className="text-xs text-gray-400 mb-3">
+                Say hi within 7 days or the match expires.
+              </p>
+            )}
             {newMatches.length === 0 ? (
               <p className="text-gray-400 text-sm py-2">No new matches yet — keep swiping!</p>
             ) : (
@@ -164,7 +173,13 @@ export default function MatchesPage() {
                         {m.user.name}
                       </span>
                       {days <= 7 && days > 0 && !m.lastMessage && (
-                        <span className="text-[10px] text-[#E85D75] font-semibold">
+                        <span
+                          className={`text-[10px] font-semibold rounded-full px-2 py-0.5 leading-none ${
+                            days <= 2
+                              ? 'bg-amber-50 text-amber-600'
+                              : 'bg-primary-50 text-primary-600'
+                          }`}
+                        >
                           {days}d left
                         </span>
                       )}

@@ -31,7 +31,7 @@ export default function NearbyGrid() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<NearbyProfile | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   const fetchProfiles = useCallback(async (pageNum: number, append: boolean) => {
     try {
@@ -86,14 +86,14 @@ export default function NearbyGrid() {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 p-4">
-        {profiles.map((profile) => {
+        {profiles.map((profile, idx) => {
           const age = calcAge(profile.birthDate);
           return (
             <button
               key={profile.userId}
               className="relative rounded-2xl overflow-hidden shadow-md bg-gray-200 active:scale-95 transition-transform"
               style={{ aspectRatio: '3/4' }}
-              onClick={() => setSelectedProfile(profile)}
+              onClick={() => setSelectedIndex(idx)}
             >
               <Image
                 src={profile.primaryPhotoUrl}
@@ -149,11 +149,17 @@ export default function NearbyGrid() {
         </div>
       )}
 
-      {selectedProfile && (
+      {selectedIndex !== null && profiles[selectedIndex] && (
         <ProfileModal
-          profile={selectedProfile}
-          onClose={() => setSelectedProfile(null)}
-          onLike={() => setSelectedProfile(null)}
+          profile={profiles[selectedIndex]}
+          onClose={() => setSelectedIndex(null)}
+          onLike={() => setSelectedIndex(null)}
+          onPrev={selectedIndex > 0 ? () => setSelectedIndex((i) => (i ?? 0) - 1) : undefined}
+          onNext={
+            selectedIndex < profiles.length - 1
+              ? () => setSelectedIndex((i) => (i ?? 0) + 1)
+              : undefined
+          }
         />
       )}
     </>

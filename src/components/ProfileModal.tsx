@@ -20,6 +20,8 @@ interface ProfileModalProps {
   profile: ProfileModalProfile;
   onClose: () => void;
   onLike?: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
 function calcAge(birthDate: string): number {
@@ -28,7 +30,7 @@ function calcAge(birthDate: string): number {
   );
 }
 
-export default function ProfileModal({ profile, onClose, onLike }: ProfileModalProps) {
+export default function ProfileModal({ profile, onClose, onLike, onPrev, onNext }: ProfileModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const age = calcAge(profile.birthDate);
   const allPhotos = [profile.primaryPhotoUrl, ...(profile.photos ?? [])].filter(Boolean);
@@ -38,11 +40,20 @@ export default function ProfileModal({ profile, onClose, onLike }: ProfileModalP
     if (e.target === overlayRef.current) onClose();
   };
 
-  // Prevent body scroll while modal open
+  // Prevent body scroll + wire arrow keys for prev/next while modal open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft') onPrev?.();
+      else if (e.key === 'ArrowRight') onNext?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose, onPrev, onNext]);
 
   return (
     <div
@@ -74,6 +85,30 @@ export default function ProfileModal({ profile, onClose, onLike }: ProfileModalP
             <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
           </svg>
         </button>
+
+        {/* Prev / Next profile navigation */}
+        {onPrev && (
+          <button
+            onClick={onPrev}
+            className="absolute top-1/3 left-3 z-10 bg-black/40 backdrop-blur-sm text-white rounded-full w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
+            aria-label="Previous profile"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+            </svg>
+          </button>
+        )}
+        {onNext && (
+          <button
+            onClick={onNext}
+            className="absolute top-1/3 right-3 z-10 bg-black/40 backdrop-blur-sm text-white rounded-full w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
+            aria-label="Next profile"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
+            </svg>
+          </button>
+        )}
 
         <div className="overflow-y-auto" style={{ maxHeight: '92dvh' }}>
           {/* Photo gallery */}

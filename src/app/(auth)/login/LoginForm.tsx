@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useState } from 'react';
 import { requestOTPAction, type AuthActionState } from '@/app/actions/auth';
+import { track } from '@/lib/analytics';
 
 const COUNTRY_CODES = [
   { code: '+971', flag: '🇦🇪', name: 'UAE' },
@@ -27,6 +28,7 @@ export default function LoginForm() {
 
   const actionWithPhone = async (_prev: AuthActionState, formData: FormData): Promise<AuthActionState> => {
     formData.set('phone', countryCode + localNumber.replace(/\D/g, ''));
+    track('signup_started');
     return requestOTPAction(_prev, formData);
   };
 

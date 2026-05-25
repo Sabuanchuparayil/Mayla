@@ -127,6 +127,8 @@ export async function verifyOTPAction(
 
   cookieStore.delete('otp_identifier');
 
+  console.log('[analytics]', JSON.stringify({ event: 'otp_verified', userId: user.id, props: { isNewUser } }));
+
   redirect(isNewUser ? '/onboarding' : '/discover');
 }
 

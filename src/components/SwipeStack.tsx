@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ProfileCard from './ProfileCard';
 import ProfileModal from './ProfileModal';
 import Image from 'next/image';
+import { track } from '@/lib/analytics';
 
 interface DiscoveryProfile {
   userId: string;
@@ -29,7 +31,17 @@ interface MatchData {
 const SWIPE_THRESHOLD = 100;
 const SUPER_LIKE_THRESHOLD = 120;
 
+// UI action → API SwipeAction enum
+const ACTION_MAP = {
+  like: 'LIKE',
+  pass: 'DISLIKE',
+  superlike: 'SUPER_LIKE',
+} as const;
+
+type UiAction = keyof typeof ACTION_MAP;
+
 export default function SwipeStack() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState<DiscoveryProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -44,6 +56,7 @@ export default function SwipeStack() {
   const [swipeDir, setSwipeDir] = useState<'left' | 'right' | 'up' | null>(null);
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [modalProfile, setModalProfile] = useState<DiscoveryProfile | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const didPointerMove = useRef(false);
@@ -59,17 +72,23 @@ export default function SwipeStack() {
       .finally(() => setLoading(false));
   }, []);
 
-  const postSwipe = useCallback(async (targetId: string, action: 'like' | 'pass' | 'superlike') => {
+  const postSwipe = useCallback(async (profile: DiscoveryProfile, action: UiAction) => {
     try {
       const res = await fetch('/api/swipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetId, action }),
+        body: JSON.stringify({ targetId: profile.userId, action: ACTION_MAP[action] }),
       });
+      if (res.status === 429) {
+        setLimitReached(true);
+        return;
+      }
       if (res.ok) {
         const data = (await res.json()) as MatchData;
+        track('swipe', { action });
         if (data.matched) {
-          setMatchData(data);
+          track('match_created');
+          setMatchData({ matched: true, matchId: data.matchId, targetProfile: profile });
         }
       }
     } catch {
@@ -78,16 +97,22 @@ export default function SwipeStack() {
   }, []);
 
   const advanceCard = useCallback(
-    (action: 'like' | 'pass' | 'superlike') => {
+    (action: UiAction) => {
       const profile = profiles[currentIndex];
       if (!profile) return;
-      postSwipe(profile.userId, action);
+      void postSwipe(profile, action);
       setCurrentIndex((i) => i + 1);
       setSwipeDir(null);
       setDragState({ isDragging: false, startX: 0, startY: 0, deltaX: 0, deltaY: 0 });
     },
     [profiles, currentIndex, postSwipe]
   );
+
+  const openChat = useCallback(() => {
+    const matchId = matchData?.matchId;
+    setMatchData(null);
+    if (matchId) router.push(`/chat/${matchId}`);
+  }, [matchData, router]);
 
   // Pointer event handlers
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -261,7 +286,7 @@ export default function SwipeStack() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
             </svg>
-            <span className="absolute -top-1 -right-1 bg-secondary-500 text-white text-[8px] font-bold rounded-full px-1">PRO</span>
+            <span className="absolute -top-1 -right-1 bg-secondary-500 text-white text-[8px] font-bold rounded-full px-1">GOLD</span>
           </button>
 
           {/* Like */}
@@ -293,39 +318,70 @@ export default function SwipeStack() {
       {matchData?.matched && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-primary-500 to-secondary-500 text-white p-8">
           <h1 className="text-4xl font-black mb-2">It&apos;s a Match!</h1>
-          <p className="text-white/80 mb-8">You and {topProfile?.name ?? 'someone'} liked each other</p>
+          <p className="text-white/80 mb-8">
+            You and {matchData.targetProfile?.name ?? 'someone'} liked each other
+          </p>
 
-          <div className="flex items-center justify-center mb-10">
-            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-xl -mr-4 z-10 relative">
+          <div className="relative mb-10">
+            <div className="w-36 h-36 rounded-full overflow-hidden border-4 border-white shadow-xl relative">
               <Image
-                src={topProfile?.primaryPhotoUrl ?? ''}
-                alt="Your match"
+                src={matchData.targetProfile?.primaryPhotoUrl ?? ''}
+                alt={matchData.targetProfile?.name ?? 'Your match'}
                 fill
                 className="object-cover"
               />
             </div>
-            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-xl -ml-4">
-              <Image
-                src={profiles[currentIndex - 1]?.primaryPhotoUrl ?? topProfile?.primaryPhotoUrl ?? ''}
-                alt="You"
-                fill
-                className="object-cover"
-              />
+            <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-lg">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#E85D75">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
             </div>
           </div>
 
           <button
-            className="w-full bg-white text-primary-500 font-bold py-3 rounded-2xl mb-3"
-            onClick={() => setMatchData(null)}
+            className="w-full max-w-xs bg-white text-primary-500 font-bold py-3 rounded-2xl mb-3 active:scale-95 transition-transform"
+            onClick={openChat}
           >
             Send a message
           </button>
           <button
-            className="w-full bg-white/20 text-white font-semibold py-3 rounded-2xl"
+            className="w-full max-w-xs bg-white/20 text-white font-semibold py-3 rounded-2xl active:scale-95 transition-transform"
             onClick={() => setMatchData(null)}
           >
             Keep swiping
           </button>
+        </div>
+      )}
+
+      {/* Daily limit reached — upgrade prompt */}
+      {limitReached && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">You&apos;re out of likes for today</h2>
+            <p className="text-gray-500 text-sm mb-6">
+              Upgrade to Gold for more likes every day, plus Super Likes and more.
+            </p>
+            <button
+              className="w-full bg-primary-500 text-white font-semibold py-3 rounded-2xl mb-2 active:scale-95 transition-transform"
+              onClick={() => {
+                track('upgrade_clicked', { source: 'swipe_limit' });
+                router.push('/settings/subscription');
+              }}
+            >
+              Upgrade to Gold
+            </button>
+            <button
+              className="w-full text-gray-500 font-medium py-2"
+              onClick={() => setLimitReached(false)}
+            >
+              Maybe later
+            </button>
+          </div>
         </div>
       )}
     </div>

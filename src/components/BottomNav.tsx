@@ -50,12 +50,13 @@ export default function BottomNav({ matchCount }: BottomNavProps) {
           <span className="text-[10px] font-medium">Matches</span>
         </Link>
 
-        {/* Chat */}
-        <Link href="/chat" className={`flex flex-col items-center gap-0.5 ${isActive('/chat') ? activeClass : inactiveClass}`}>
+        {/* Likes */}
+        <Link href="/likes" className={`flex flex-col items-center gap-0.5 ${isActive('/likes') ? activeClass : inactiveClass}`}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+            <path d="M12 17.27l-4.95 2.96 1.31-5.64L4 10.76l5.77-.5L12 5l2.23 5.26 5.77.5-4.36 3.83 1.31 5.64z"/>
+            <path d="M19 2l.7 1.8L21.5 4.5 19.7 5.2 19 7l-.7-1.8L16.5 4.5l1.8-.7z"/>
           </svg>
-          <span className="text-[10px] font-medium">Chat</span>
+          <span className="text-[10px] font-medium">Likes</span>
         </Link>
 
         {/* Profile */}

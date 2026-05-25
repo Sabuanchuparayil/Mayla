@@ -38,16 +38,49 @@ export default async function OnboardingPage() {
     category: p.category ?? 'General',
   }));
 
-  // Load profile name if exists (for Step 6)
+  // Load profile + related data to compute resume point (and name for Step 6)
   const profile = await db.profile.findUnique({
     where: { userId },
-    select: { name: true },
+    select: {
+      name: true,
+      birthDate: true,
+      gender: true,
+      genderPreference: true,
+      relationshipIntent: true,
+      _count: { select: { profilePrompts: true } },
+    },
   });
+
+  const [verificationCount, verifiedPhotoCount] = await Promise.all([
+    db.verification.count({ where: { userId } }),
+    db.photo.count({ where: { userId, isVerified: true } }),
+  ]);
+
+  // Determine the furthest-incomplete step (first step NOT complete, 1..6)
+  const step1Complete = Boolean(
+    profile &&
+      profile.name &&
+      profile.birthDate &&
+      profile.gender &&
+      profile.genderPreference.length > 0,
+  );
+  const step2Complete = step1Complete && Boolean(profile?.relationshipIntent);
+  const step3Complete = step2Complete && (profile?._count.profilePrompts ?? 0) >= 3;
+  const step4Complete = step3Complete && verificationCount > 0;
+  const step5Complete = step4Complete && verifiedPhotoCount >= 3;
+
+  let initialStep = 1;
+  if (step5Complete) initialStep = 6;
+  else if (step4Complete) initialStep = 5;
+  else if (step3Complete) initialStep = 4;
+  else if (step2Complete) initialStep = 3;
+  else if (step1Complete) initialStep = 2;
 
   return (
     <OnboardingFlow
       prompts={prompts}
       existingName={profile?.name ?? null}
+      initialStep={initialStep}
     />
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { usePremium, type Plan } from '@/hooks/usePremium';
+import { getMonthlyPriceLabel, MONTHLY_PRODUCT_FOR_PLAN } from '@/lib/products';
 
 interface PremiumGateProps {
   /** Minimum plan required */
@@ -103,13 +104,18 @@ function UpgradeModal({
 }) {
   const [isLoading, setIsLoading] = useState(false);
 
+  // Modal only ever gates paid plans; fall back to Gold for the BASIC edge case.
+  const targetPlan = requires === 'PLATINUM' ? 'PLATINUM' : 'GOLD';
+  const checkoutProduct = MONTHLY_PRODUCT_FOR_PLAN[targetPlan];
+  const priceLabel = getMonthlyPriceLabel(targetPlan);
+
   const upgrade = async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/payments/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: 'premium_monthly' }),
+        body: JSON.stringify({ product: checkoutProduct }),
       });
       const data = await res.json() as { url?: string };
       if (data.url) window.location.href = data.url;
@@ -138,16 +144,16 @@ function UpgradeModal({
         </div>
 
         <h2 className="text-center text-xl font-bold text-gray-900">
-          Upgrade to {PLAN_LABELS[requires]}
+          Upgrade to {PLAN_LABELS[targetPlan]}
         </h2>
         {featureName && (
           <p className="mt-1 text-center text-sm text-gray-500">
-            {featureName} requires a {PLAN_LABELS[requires]} subscription
+            {featureName} requires a {PLAN_LABELS[targetPlan]} subscription
           </p>
         )}
 
         <ul className="mt-4 space-y-2">
-          {FEATURES[requires].map((f) => (
+          {FEATURES[targetPlan].map((f) => (
             <li key={f} className="flex items-center gap-2 text-sm text-gray-700">
               <svg className="h-4 w-4 shrink-0 text-primary-500" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
@@ -163,7 +169,7 @@ function UpgradeModal({
           disabled={isLoading}
           className="mt-6 w-full rounded-xl bg-primary-500 py-3.5 font-semibold text-white hover:bg-primary-600 disabled:opacity-50 transition-colors"
         >
-          {isLoading ? 'Loading…' : `Get ${PLAN_LABELS[requires]} — $19.99/mo`}
+          {isLoading ? 'Loading…' : `Get ${PLAN_LABELS[targetPlan]} — ${priceLabel}/mo`}
         </button>
         <button
           type="button"

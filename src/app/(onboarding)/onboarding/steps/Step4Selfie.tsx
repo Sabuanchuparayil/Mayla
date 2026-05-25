@@ -19,6 +19,7 @@ export default function Step4Selfie({ onNext }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
@@ -100,6 +101,31 @@ export default function Step4Selfie({ onNext }: Props) {
       stopStream();
     }, 'image/jpeg', 0.9);
   };
+
+  const usePhoto = (blob: Blob) => {
+    stopStream();
+    if (capturedUrl) URL.revokeObjectURL(capturedUrl);
+    const url = URL.createObjectURL(blob);
+    setCapturedBlob(blob);
+    setCapturedUrl(url);
+    setError('');
+    setStableFrames(0);
+    setSelfieState('preview');
+  };
+
+  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setSelfieState('error');
+      setError('Please choose an image file.');
+      return;
+    }
+    usePhoto(file);
+  };
+
+  const openFilePicker = () => fileInputRef.current?.click();
 
   const retake = () => {
     if (capturedUrl) URL.revokeObjectURL(capturedUrl);
@@ -230,6 +256,14 @@ export default function Step4Selfie({ onNext }: Props) {
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={onFileSelected}
+      />
 
       {error && (
         <p className="text-sm text-red-500 bg-red-50 px-4 py-2 rounded-lg mb-4 text-center w-full max-w-xs">
@@ -240,13 +274,22 @@ export default function Step4Selfie({ onNext }: Props) {
       {/* Actions */}
       <div className="w-full max-w-xs space-y-3">
         {selfieState === 'idle' && (
-          <button
-            type="button"
-            onClick={startCamera}
-            className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold text-base hover:bg-primary-600 transition-colors"
-          >
-            Open Camera
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={startCamera}
+              className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold text-base hover:bg-primary-600 transition-colors"
+            >
+              Open Camera
+            </button>
+            <button
+              type="button"
+              onClick={openFilePicker}
+              className="w-full text-center text-sm text-foreground/60 hover:text-primary-600 underline underline-offset-2 transition-colors"
+            >
+              Upload a photo instead
+            </button>
+          </>
         )}
 
         {selfieState === 'requesting' && (
@@ -254,13 +297,22 @@ export default function Step4Selfie({ onNext }: Props) {
         )}
 
         {selfieState === 'streaming' && (
-          <button
-            type="button"
-            onClick={capturePhoto}
-            className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold text-base hover:bg-primary-600 transition-colors"
-          >
-            Capture Now
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={capturePhoto}
+              className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold text-base hover:bg-primary-600 transition-colors"
+            >
+              Capture Now
+            </button>
+            <button
+              type="button"
+              onClick={openFilePicker}
+              className="w-full text-center text-sm text-foreground/60 hover:text-primary-600 underline underline-offset-2 transition-colors"
+            >
+              Upload a photo instead
+            </button>
+          </>
         )}
 
         {selfieState === 'preview' && (
@@ -283,13 +335,22 @@ export default function Step4Selfie({ onNext }: Props) {
         )}
 
         {selfieState === 'error' && (
-          <button
-            type="button"
-            onClick={retake}
-            className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold text-base hover:bg-primary-600 transition-colors"
-          >
-            Try Again
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={openFilePicker}
+              className="w-full py-4 bg-primary-500 text-white rounded-xl font-semibold text-base hover:bg-primary-600 transition-colors"
+            >
+              Upload a photo instead
+            </button>
+            <button
+              type="button"
+              onClick={retake}
+              className="w-full py-3 border-2 border-primary-300 text-primary-600 rounded-xl font-semibold text-base hover:bg-primary-50 transition-colors"
+            >
+              Try Again
+            </button>
+          </>
         )}
       </div>
     </div>
