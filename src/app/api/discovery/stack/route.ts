@@ -3,6 +3,8 @@ import { Prisma } from '@/generated/prisma/client';
 import { db } from '@/lib/db';
 import { redis } from '@/lib/redis';
 
+export const dynamic = 'force-dynamic';
+
 type CandidateRow = { user_id: string; distance_m: number | null };
 
 interface ProfileCard {

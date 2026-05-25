@@ -4,6 +4,8 @@ import { stripe } from '@/lib/stripe';
 import { db } from '@/lib/db';
 import { PRODUCTS, getPriceId, type ProductKey } from '@/lib/products';
 
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   product: z.enum([
     'premium_monthly', 'premium_annual',

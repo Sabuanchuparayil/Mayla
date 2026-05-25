@@ -6,6 +6,8 @@ import { connectMongoDB } from '@/lib/mongodb';
 import { DisappearingMedia } from '@/models/disappearing-media.model';
 import { getIO } from '@/lib/socket-io';
 
+export const dynamic = 'force-dynamic';
+
 const VIEW_PRESIGN_TTL = 60; // 1 minute to view after marking
 
 // GET /api/media/disappearing/:id/viewed — get presigned view URL

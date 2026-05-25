@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { connectMongoDB } from '@/lib/mongodb';
 import { Message } from '@/models/message.model';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const role = req.headers.get('x-user-role');
   if (role !== 'ADMIN' && role !== 'MODERATOR') {

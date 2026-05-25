@@ -1,8 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI ?? '';
-
-if (!MONGODB_URI) throw new Error('MONGODB_URI is not defined in environment variables');
+function getMongoUri(): string {
+  const uri = process.env.MONGODB_URL ?? process.env.MONGODB_URI;
+  if (!uri) throw new Error('MONGODB_URL is not defined in environment variables');
+  return uri;
+}
 
 type MongooseCache = { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
 const g = globalThis as unknown as { mongoose?: MongooseCache };
@@ -17,7 +19,7 @@ export async function connectMongoDB(): Promise<typeof mongoose> {
     mongoose.connection.on('disconnected', () => console.warn('[MongoDB] Disconnected'));
     mongoose.connection.on('reconnected', () => console.warn('[MongoDB] Reconnected'));
 
-    cached.promise = mongoose.connect(MONGODB_URI, {
+    cached.promise = mongoose.connect(getMongoUri(), {
       bufferCommands: false,
       maxPoolSize: 10,
       minPoolSize: 2,

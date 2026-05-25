@@ -8,6 +8,8 @@ import { db } from '@/lib/db';
 import { DetectModerationLabelsCommand } from '@aws-sdk/client-rekognition';
 import { rekognitionClient } from '@/lib/s3';
 
+export const dynamic = 'force-dynamic';
+
 const PRESIGN_TTL = 15 * 60; // 15 minutes
 const NSFW_THRESHOLD = 80;
 const NSFW_LABELS = new Set(['Explicit Nudity', 'Violence', 'Visually Disturbing', 'Nudity']);

@@ -3,6 +3,8 @@ import { z } from 'zod/v4';
 import { db } from '@/lib/db';
 import { redis } from '@/lib/redis';
 
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   ban: z.boolean(),
 });

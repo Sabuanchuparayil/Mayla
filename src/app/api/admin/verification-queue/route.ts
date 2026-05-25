@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod/v4';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/verification-queue?page=1
 // Returns users with pending verification + unverified photos for manual review
 export async function GET(req: NextRequest) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/payments/subscription — current user's plan + subscription details
 export async function GET(req: NextRequest) {
   const userId = req.headers.get('x-user-id');

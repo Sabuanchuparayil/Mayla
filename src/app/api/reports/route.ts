@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { getIO } from '@/lib/socket-io';
 import { ReportCategory } from '@/generated/prisma/enums';
 
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   reportedUserId: z.string().min(1),
   category: z.enum([

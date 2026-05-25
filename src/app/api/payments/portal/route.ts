@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
 // POST /api/payments/portal — redirect to Stripe Customer Portal for management/cancellation

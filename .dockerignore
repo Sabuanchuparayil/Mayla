@@ -1,0 +1,15 @@
+node_modules
+.next
+.server-dist
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+src/generated/prisma
+.vscode
+.idea
+*.md
+Dockerfile
+.dockerignore

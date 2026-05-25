@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { redis } from '@/lib/redis';
 
+export const dynamic = 'force-dynamic';
+
 // DELETE /api/blocks/:userId — unblock
 export async function DELETE(
   req: NextRequest,

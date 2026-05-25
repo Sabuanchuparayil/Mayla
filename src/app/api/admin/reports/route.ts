@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod/v4';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/reports?status=PENDING&page=1
 export async function GET(req: NextRequest) {
   const role = req.headers.get('x-user-role');

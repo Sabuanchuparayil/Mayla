@@ -5,6 +5,8 @@ import { Message } from '@/models/message.model';
 import { filterText } from '@/lib/content-filter';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 const LIMIT = 50;
 
 async function assertMatchMember(userId: string, matchId: string): Promise<boolean> {

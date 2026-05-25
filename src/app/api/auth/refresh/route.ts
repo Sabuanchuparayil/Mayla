@@ -4,6 +4,8 @@ import { verifyRefreshToken, generateAccessToken } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authLimiter } from '@/lib/rate-limit';
 
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   refreshToken: z.string().min(1),
 });

@@ -4,6 +4,8 @@ import { stripe } from '@/lib/stripe';
 import { db } from '@/lib/db';
 import type { SubscriptionPlan, SubscriptionStatus } from '@/generated/prisma/enums';
 
+export const dynamic = 'force-dynamic';
+
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
 // ─── Stripe plan mapping ──────────────────────────────────────────────────────

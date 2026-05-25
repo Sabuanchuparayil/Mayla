@@ -6,6 +6,8 @@ import { VerificationStatus } from '@/generated/prisma/enums';
 import { selfieQueue } from '@/lib/queues';
 import { randomUUID } from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const userId = req.headers.get('x-user-id');
   if (!userId) {

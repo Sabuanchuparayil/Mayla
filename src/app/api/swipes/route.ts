@@ -5,6 +5,8 @@ import { redis } from '@/lib/redis';
 import { createMatch } from '@/lib/matches';
 import { SwipeAction, SubscriptionPlan } from '@/generated/prisma/enums';
 
+export const dynamic = 'force-dynamic';
+
 const SwipeBody = z.object({
   targetId: z.string().min(1),
   action: z.enum(['LIKE', 'DISLIKE', 'SUPER_LIKE']),

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/users?q=<search>&page=1
 export async function GET(req: NextRequest) {
   const role = req.headers.get('x-user-role');

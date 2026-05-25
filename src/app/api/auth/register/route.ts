@@ -3,6 +3,8 @@ import { z } from 'zod/v4';
 import { generateOTP } from '@/lib/otp';
 import { otpRequestLimiter, authLimiter } from '@/lib/rate-limit';
 
+export const dynamic = 'force-dynamic';
+
 const schema = z
   .object({
     phone: z.string().regex(/^\+[1-9]\d{7,14}$/).optional(),

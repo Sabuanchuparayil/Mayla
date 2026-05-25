@@ -5,6 +5,8 @@ import { generateTokenPair } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { authLimiter } from '@/lib/rate-limit';
 
+export const dynamic = 'force-dynamic';
+
 const schema = z.object({
   phone: z.string().regex(/^\+[1-9]\d{7,14}$/).optional(),
   email: z.email().optional(),

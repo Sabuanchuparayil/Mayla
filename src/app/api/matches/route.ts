@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 function calcAge(birthDate: Date): number {
   const now = new Date();
   let age = now.getFullYear() - birthDate.getFullYear();

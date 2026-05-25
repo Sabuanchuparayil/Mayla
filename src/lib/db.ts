@@ -24,6 +24,18 @@ function createClient(): PrismaClient {
   } as ConstructorParameters<typeof PrismaClient>[0]);
 }
 
-export const db = g.db ?? createClient();
+function getClient(): PrismaClient {
+  g.db ??= createClient();
+  return g.db;
+}
 
-if (process.env.NODE_ENV !== 'production') g.db = db;
+// Proxy so the PrismaClient (and its pg pool) is only constructed on first
+// real property access. This keeps `next build` from opening a DB connection
+// at import time when it statically analyses route modules.
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getClient();
+    const value = Reflect.get(client, prop, receiver);
+    return typeof value === 'function' ? value.bind(client) : value;
+  },
+}) as PrismaClient;
