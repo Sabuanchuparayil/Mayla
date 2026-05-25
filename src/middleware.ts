@@ -6,7 +6,11 @@ const ACCESS_SECRET = new TextEncoder().encode(
 );
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/api/profile', '/api/matches', '/api/swipes', '/api/user'];
+const PROTECTED_PREFIXES = [
+  '/api/profile', '/api/matches', '/api/swipes', '/api/user',
+  '/api/messages', '/api/reports', '/api/blocks', '/api/media',
+  '/api/discovery', '/api/admin', '/api/verification',
+];
 
 // Routes that are always public (no auth check)
 const PUBLIC_PREFIXES = [

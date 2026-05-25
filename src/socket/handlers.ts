@@ -30,6 +30,21 @@ async function assertMatchMember(userId: string, matchId: string): Promise<boole
 export function registerChatHandlers(io: Server, socket: Socket) {
   const userId = socket.data.userId as string;
 
+  // ─── Join admin room if admin/moderator ───────────────────────────────────
+  (async () => {
+    try {
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+      if (user?.role === 'ADMIN' || user?.role === 'MODERATOR') {
+        await socket.join('admin:room');
+      }
+    } catch {
+      // non-fatal
+    }
+  })();
+
   // ─── Join rooms for all active matches ────────────────────────────────────
   (async () => {
     try {
