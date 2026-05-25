@@ -1,13 +1,7 @@
-const CACHE = 'mayla-v3';
-const PRECACHE = ['/', '/login', '/discover'];
+const CACHE = 'mayla-v5';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting()),
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
@@ -29,6 +23,19 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/socket.io')) return;
   if (url.pathname.startsWith('/_next/')) return;
 
+  const accept = event.request.headers.get('accept') || '';
+  const isNavigation =
+    event.request.mode === 'navigate' || accept.includes('text/html');
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match(event.request).then((cached) => cached || Response.error()),
+      ),
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -38,9 +45,7 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() =>
-        caches.match(event.request).then((cached) => cached || caches.match('/')),
-      ),
+      .catch(() => caches.match(event.request).then((cached) => cached || Response.error())),
   );
 });
 
