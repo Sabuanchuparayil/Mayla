@@ -4,90 +4,242 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+interface MatchUser {
+  id: string;
+  name: string;
+  age: number;
+  primaryPhotoUrl: string;
+  isVerified: boolean;
+}
+
 interface MatchItem {
   matchId: string;
-  userId: string;
-  name: string;
-  birthDate: string;
-  primaryPhotoUrl: string;
+  user: MatchUser;
   matchedAt: string;
+}
+
+interface Message {
+  _id: string;
+  senderId: string;
+  content: string | null;
+  type: string;
+  createdAt: string;
+}
+
+interface MatchWithPreview extends MatchItem {
+  lastMessage?: Message | null;
+  unreadCount?: number;
 }
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs}h`;
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return `${Math.floor(days / 7)}w ago`;
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
+}
+
+function daysLeft(matchedAt: string): number {
+  const diff = 7 * 24 * 60 * 60 * 1000 - (Date.now() - new Date(matchedAt).getTime());
+  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+}
+
+function isRecent(iso: string): boolean {
+  return Date.now() - new Date(iso).getTime() < 24 * 60 * 60 * 1000;
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function AvatarWithRing({
+  src,
+  alt,
+  size = 56,
+  ring = false,
+}: {
+  src: string;
+  alt: string;
+  size?: number;
+  ring?: boolean;
+}) {
+  return (
+    <div
+      className={`relative rounded-full flex-shrink-0 ${ring ? 'ring-2 ring-green-400 ring-offset-1' : ''}`}
+      style={{ width: size, height: size }}
+    >
+      <div className="relative w-full h-full rounded-full overflow-hidden bg-gray-200">
+        <Image src={src} alt={alt} fill className="object-cover" />
+      </div>
+    </div>
+  );
 }
 
 export default function MatchesPage() {
   const router = useRouter();
-  const [matches, setMatches] = useState<MatchItem[]>([]);
+  const [matches, setMatches] = useState<MatchWithPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/matches')
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((data: unknown) => {
-        const items = Array.isArray(data) ? data : (data as { matches?: MatchItem[] }).matches ?? [];
-        setMatches(items as MatchItem[]);
-      })
-      .catch(() => setMatches([]))
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        const res = await fetch('/api/matches');
+        if (!res.ok) throw new Error('failed');
+        const data = await res.json() as { matches?: MatchItem[] };
+        const items: MatchItem[] = data.matches ?? [];
+
+        // Batch fetch last messages in parallel
+        const withPreviews: MatchWithPreview[] = await Promise.all(
+          items.map(async (m) => {
+            try {
+              const msgRes = await fetch(`/api/messages/${m.matchId}?limit=1`);
+              if (msgRes.ok) {
+                const msgData = await msgRes.json() as { messages?: Message[] };
+                const msgs = msgData.messages ?? [];
+                return { ...m, lastMessage: msgs[0] ?? null };
+              }
+            } catch {
+              // ignore
+            }
+            return { ...m, lastMessage: null };
+          })
+        );
+
+        setMatches(withPreviews);
+      } catch {
+        setMatches([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
   }, []);
 
+  const newMatches = matches.filter(
+    (m) => isRecent(m.matchedAt) || !m.lastMessage
+  );
+  const conversations = matches.filter((m) => m.lastMessage);
+
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="sticky top-0 bg-white/80 backdrop-blur-sm z-10 px-4 py-3 border-b border-gray-100">
+    <div className="h-full overflow-y-auto bg-white">
+      {/* Header */}
+      <div className="sticky top-0 bg-white/90 backdrop-blur-sm z-10 px-4 py-3 border-b border-gray-100">
         <h1 className="text-xl font-bold text-gray-900">Matches</h1>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-48">
-          <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin" />
-        </div>
-      ) : matches.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-4 px-8 text-center">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-          </div>
-          <p className="text-gray-700 font-semibold text-lg">No matches yet</p>
-          <p className="text-gray-400 text-sm">Keep swiping!</p>
+          <div className="w-10 h-10 border-4 border-pink-200 border-t-[#E85D75] rounded-full animate-spin" />
         </div>
       ) : (
-        <ul className="divide-y divide-gray-100">
-          {matches.map((match) => (
-            <li key={match.matchId}>
-              <button
-                className="w-full flex items-center gap-4 px-4 py-3 active:bg-gray-50 transition-colors text-left"
-                onClick={() => router.push(`/chat/${match.matchId}`)}
-              >
-                <div className="relative w-14 h-14 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
-                  <Image
-                    src={match.primaryPhotoUrl}
-                    alt={match.name}
-                    fill
-                    className="object-cover"
-                  />
+        <>
+          {/* New Matches Section */}
+          <div className="px-4 pt-4 pb-2">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              New Matches
+            </h2>
+            {newMatches.length === 0 ? (
+              <p className="text-gray-400 text-sm py-2">No new matches yet — keep swiping!</p>
+            ) : (
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+                {newMatches.map((m) => {
+                  const days = daysLeft(m.matchedAt);
+                  return (
+                    <button
+                      key={m.matchId}
+                      className="flex flex-col items-center gap-1.5 flex-shrink-0 active:opacity-70 transition-opacity"
+                      onClick={() => router.push(`/chat/${m.matchId}`)}
+                    >
+                      <AvatarWithRing
+                        src={m.user.primaryPhotoUrl}
+                        alt={m.user.name}
+                        size={64}
+                        ring={isRecent(m.matchedAt)}
+                      />
+                      <span className="text-xs font-medium text-gray-800 max-w-[64px] truncate">
+                        {m.user.name}
+                      </span>
+                      {days <= 7 && days > 0 && !m.lastMessage && (
+                        <span className="text-[10px] text-[#E85D75] font-semibold">
+                          {days}d left
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 mx-4" />
+
+          {/* Messages Section */}
+          <div className="px-4 pt-3">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Messages
+            </h2>
+            {conversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{match.name}</p>
-                  <p className="text-sm text-gray-400">Matched {timeAgo(match.matchedAt)}</p>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
-              </button>
-            </li>
-          ))}
-        </ul>
+                <p className="text-gray-600 font-medium">No messages yet</p>
+                <p className="text-gray-400 text-sm">Start a conversation with your matches!</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-50">
+                {conversations.map((m) => {
+                  const msg = m.lastMessage;
+                  const preview =
+                    msg?.type === 'disappearing'
+                      ? '📷 Photo'
+                      : msg?.type === 'image'
+                      ? '🖼 Image'
+                      : msg?.content ?? '';
+                  return (
+                    <li key={m.matchId}>
+                      <button
+                        className="w-full flex items-center gap-3 py-3 active:bg-gray-50 transition-colors text-left"
+                        onClick={() => router.push(`/chat/${m.matchId}`)}
+                      >
+                        <AvatarWithRing
+                          src={m.user.primaryPhotoUrl}
+                          alt={m.user.name}
+                          size={52}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-gray-900 text-sm truncate">
+                              {m.user.name}
+                              {m.user.isVerified && (
+                                <span className="ml-1 text-[#6C63FF] text-xs">✓</span>
+                              )}
+                            </span>
+                            <span className="text-[11px] text-gray-400 flex-shrink-0">
+                              {msg ? formatTime(msg.createdAt) : timeAgo(m.matchedAt)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-400 truncate mt-0.5">{preview}</p>
+                        </div>
+                        {(m.unreadCount ?? 0) > 0 && (
+                          <span className="bg-[#E85D75] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 flex-shrink-0">
+                            {(m.unreadCount ?? 0) > 99 ? '99+' : m.unreadCount}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
