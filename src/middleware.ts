@@ -106,7 +106,7 @@ export async function middleware(request: NextRequest) {
   const method = request.method;
   if (isApiPath(pathname) && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
     const origin = request.headers.get('origin');
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const appUrl = process.env.APP_ORIGIN ?? process.env.NEXT_PUBLIC_APP_URL;
     if (origin && appUrl && !origin.startsWith(appUrl)) {
       return withCsp(
         withPathname(
