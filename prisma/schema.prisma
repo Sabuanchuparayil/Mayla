@@ -25,6 +25,7 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   profile             Profile?
+  preference          UserPreference?
   subscription        Subscription?
   auditLogs           AuditLog[]
   matchesAsA          Match[]   @relation("MatchUserA")
@@ -35,6 +36,13 @@ model User {
   blocksReceived      UserBlock[] @relation("BlocksReceived")
   reportsMade         UserReport[] @relation("ReportsMade")
   reportsReceived     UserReport[] @relation("ReportsReceived")
+  dateRequestsSent    DateRequest[] @relation("DateRequestsSent")
+  dateRequestsReceived DateRequest[] @relation("DateRequestsReceived")
+  pushSubscriptions   PushSubscription[]
+  contactHashes       ContactHash[]
+  giftsSent           VirtualGift[] @relation("GiftsSent")
+  giftsReceived       VirtualGift[] @relation("GiftsReceived")
+  eventRsvps          EventRsvp[]
 
   @@map("users")
 }
@@ -47,6 +55,18 @@ model Profile {
   bio                String?
   birthDate          DateTime?
   gender             String?
+  nationality        String?
+  languages          Json      @default("[]")
+  education          String?
+  jobTitle           String?
+  industry           String?
+  relationshipGoal   RelationshipGoal?
+  lifestyle          Json      @default("[]")
+  smoking            String?
+  drinking           String?
+  exercise           String?
+  height             Int?
+  personalityPrompts Json      @default("[]")
   interests          Json      @default("[]")
   photos             Json      @default("[]")
   latitude           Float?
@@ -59,12 +79,139 @@ model Profile {
   travelCity         String?
   city               String?
   country            String    @default("AE")
+  availableDay       String?
+  availableTime      String?
+  availableExpiry    DateTime?
+  profilePaused      Boolean   @default(false)
+  incognitoMode      Boolean   @default(false)
+  ladiesFirstMessaging Boolean @default(false)
+  dreamDates         Json      @default("[]")
+  openToDifferentCultures String?
+  relocateWillingness String?
+  lifestyleExpectations String?
+  photoBlurUntilMatch Boolean  @default(false)
+  gentlemanScore     Int       @default(0)
+  locale             String    @default("en")
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   @@index([country])
+  @@index([relationshipGoal])
+  @@index([availableExpiry])
   @@index([userId])
   @@map("profiles")
+}
+
+model DateRequest {
+  id           String            @id @default(cuid())
+  fromUserId   String
+  toUserId     String
+  fromUser     User              @relation("DateRequestsSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser       User              @relation("DateRequestsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  message      String?
+  proposedDay  String?
+  proposedTime String?
+  status       DateRequestStatus @default(PENDING)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status])
+  @@map("date_requests")
+}
+
+model UserPreference {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  genderPref        Json     @default("[]")
+  ageMin            Int?
+  ageMax            Int?
+  nationalities     Json     @default("[]")
+  languages         Json     @default("[]")
+  maxDistanceKm     Int      @default(100)
+  relationshipGoals Json     @default("[]")
+  dealbreakers      Json     @default("{}")
+  hideFromNationalities Json @default("[]")
+  hideFromCities    Json     @default("[]")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String
+  keys      Json
+  createdAt DateTime @default(now())
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+model ContactHash {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneHash   String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, phoneHash])
+  @@index([phoneHash])
+  @@map("contact_hashes")
+}
+
+model VirtualGift {
+  id         String     @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  fromUser   User       @relation("GiftsSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User       @relation("GiftsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  giftType   GiftType
+  message    String?
+  status     GiftStatus @default(PENDING)
+  createdAt  DateTime   @default(now())
+
+  @@index([toUserId, status])
+  @@index([fromUserId])
+  @@map("virtual_gifts")
+}
+
+model CommunityEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  city        String
+  country     String   @default("AE")
+  category    String
+  startsAt    DateTime
+  maxAttendees Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  rsvps       EventRsvp[]
+
+  @@index([startsAt])
+  @@index([city])
+  @@map("community_events")
+}
+
+model EventRsvp {
+  id        String           @id @default(cuid())
+  eventId   String
+  userId    String
+  event     CommunityEvent   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    EventRsvpStatus  @default(GOING)
+  createdAt DateTime         @default(now())
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@map("event_rsvps")
 }
 
 model Match {
@@ -159,6 +306,16 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+enum RelationshipGoal {
+  MARRIAGE
+  LIFE_PARTNER
+  RELATIONSHIP
+  CASUAL_DATING
+  COMPANIONSHIP
+  SOCIAL_FUN
+  RATHER_NOT_SAY
+}
+
 enum Role {
   USER
   ADMIN
@@ -192,4 +349,29 @@ enum SubscriptionStatus {
   ACTIVE
   CANCELLED
   EXPIRED
+}
+
+enum DateRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum GiftType {
+  ROSE
+  COFFEE
+  DINNER_INVITE
+  WEEKEND_PACKAGE
+}
+
+enum GiftStatus {
+  PENDING
+  SEEN
+  DECLINED
+}
+
+enum EventRsvpStatus {
+  GOING
+  INTERESTED
 }

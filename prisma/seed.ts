@@ -60,6 +60,172 @@ const DEMO_USERS: DemoUser[] = [
   { email: 'rashid@demo.mayla', phone: '974501000015', username: 'rashid_qa', name: 'Rashid Al-Thani', gender: 'MALE', birthDate: new Date('1991-11-12'), city: 'Doha', lat: 25.2854, lng: 51.5310, bio: 'Sports journalist. I can talk about football for 90 minutes straight.', interests: ['football', 'writing', 'chess', 'coffee'], tier: 'GOLD' },
 ];
 
+const PROFILE_ENRICHMENTS: Record<
+  string,
+  {
+    relationshipGoal:
+      | 'MARRIAGE'
+      | 'LIFE_PARTNER'
+      | 'RELATIONSHIP'
+      | 'CASUAL_DATING'
+      | 'COMPANIONSHIP'
+      | 'SOCIAL_FUN'
+      | 'RATHER_NOT_SAY';
+    nationality: string;
+    languages: string[];
+    lifestyle: string[];
+    industry: string;
+    education: string;
+    personalityPrompts: { prompt: string; answer: string }[];
+  }
+> = {
+  'sara@demo.mayla': {
+    relationshipGoal: 'RELATIONSHIP',
+    nationality: 'AE',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Coffee Addict', 'Travel', 'Fine Dining'],
+    industry: 'Design',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'My ideal Friday looks like...', answer: 'Sunset at Kite Beach with good coffee.' }],
+  },
+  'omar@demo.mayla': {
+    relationshipGoal: 'CASUAL_DATING',
+    nationality: 'AE',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Fitness Lover', 'Foodie'],
+    industry: 'Tech',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'The way to my heart is...', answer: 'Beating me at padel.' }],
+  },
+  'layla@demo.mayla': {
+    relationshipGoal: 'RELATIONSHIP',
+    nationality: 'AE',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Bookworm', 'Adventurer'],
+    industry: 'Student',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'I geek out about...', answer: 'Watercolour and indie music.' }],
+  },
+  'ahmed@demo.mayla': {
+    relationshipGoal: 'COMPANIONSHIP',
+    nationality: 'AE',
+    languages: ['Arabic', 'English', 'French'],
+    lifestyle: ['Fine Dining', 'Travel', 'Luxury Lifestyle'],
+    industry: 'Hospitality',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: "I'll pick the restaurant if you pick...", answer: 'The wine. Always the wine.' }],
+  },
+  'fatima@demo.mayla': {
+    relationshipGoal: 'MARRIAGE',
+    nationality: 'AE',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Bookworm', 'Fitness Lover'],
+    industry: 'Healthcare',
+    education: "Master's",
+    personalityPrompts: [{ prompt: 'My family would describe me as...', answer: 'Always reading something.' }],
+  },
+  'nora@demo.mayla': {
+    relationshipGoal: 'RELATIONSHIP',
+    nationality: 'SA',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Coffee Addict', 'Social Butterfly'],
+    industry: 'Tech',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'After work you\'ll find me...', answer: 'Exploring a new cafe.' }],
+  },
+  'faisal@demo.mayla': {
+    relationshipGoal: 'LIFE_PARTNER',
+    nationality: 'SA',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Travel', 'Adventurer'],
+    industry: 'Real Estate',
+    education: "Master's",
+    personalityPrompts: [{ prompt: 'A perfect first date for me is...', answer: 'Architecture walk in Al Balad.' }],
+  },
+  'hana@demo.mayla': {
+    relationshipGoal: 'SOCIAL_FUN',
+    nationality: 'SA',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Adventurer', 'Foodie'],
+    industry: 'Healthcare',
+    education: "Master's",
+    personalityPrompts: [{ prompt: 'Two truths and a lie...', answer: 'I love road trips, hate traffic, never get lost.' }],
+  },
+  'zain@demo.mayla': {
+    relationshipGoal: 'COMPANIONSHIP',
+    nationality: 'BH',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Luxury Lifestyle', 'Travel', 'Fine Dining'],
+    industry: 'Finance',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'The best travel story I have is...', answer: 'Surfing in Bahrain at sunrise.' }],
+  },
+  'mariam@demo.mayla': {
+    relationshipGoal: 'RELATIONSHIP',
+    nationality: 'BH',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Fitness Lover', 'Homebody'],
+    industry: 'Healthcare',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'A life goal I\'m working towards...', answer: 'Finishing med school with sanity intact.' }],
+  },
+  'khalid@demo.mayla': {
+    relationshipGoal: 'CASUAL_DATING',
+    nationality: 'KW',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Travel', 'Adventurer'],
+    industry: 'Aviation',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'The best travel story I have is...', answer: 'Landing in 40 countries and counting.' }],
+  },
+  'dana@demo.mayla': {
+    relationshipGoal: 'COMPANIONSHIP',
+    nationality: 'KW',
+    languages: ['Arabic', 'English', 'French'],
+    lifestyle: ['Luxury Lifestyle', 'Fine Dining', 'Travel'],
+    industry: 'Retail',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'My ideal Friday looks like...', answer: 'Brunch, boutique hopping, rooftop sunset.' }],
+  },
+  'yusuf@demo.mayla': {
+    relationshipGoal: 'RELATIONSHIP',
+    nationality: 'OM',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Adventurer', 'Beach Lover'],
+    industry: 'Education',
+    education: "Master's",
+    personalityPrompts: [{ prompt: 'I geek out about...', answer: 'Coral reefs and marine life.' }],
+  },
+  'amira@demo.mayla': {
+    relationshipGoal: 'MARRIAGE',
+    nationality: 'OM',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Homebody', 'Bookworm'],
+    industry: 'Education',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'My most controversial opinion is...', answer: 'Pottery is better than therapy.' }],
+  },
+  'rashid@demo.mayla': {
+    relationshipGoal: 'SOCIAL_FUN',
+    nationality: 'QA',
+    languages: ['Arabic', 'English'],
+    lifestyle: ['Social Butterfly', 'Coffee Addict'],
+    industry: 'Media',
+    education: "Bachelor's",
+    personalityPrompts: [{ prompt: 'I geek out about...', answer: 'Football stats and tactical analysis.' }],
+  },
+};
+
+const DEFAULT_ENRICHMENT = {
+  relationshipGoal: 'RELATIONSHIP' as const,
+  nationality: 'AE',
+  languages: ['Arabic', 'English'],
+  lifestyle: ['Social Butterfly'],
+  industry: 'Other',
+  education: "Bachelor's",
+  personalityPrompts: [] as { prompt: string; answer: string }[],
+};
+
 const COUNTRY_FROM_PHONE: Record<string, string> = {
   '971': 'AE', '966': 'SA', '973': 'BH', '965': 'KW', '968': 'OM', '974': 'QA',
 };
@@ -131,6 +297,8 @@ async function main() {
       },
     });
 
+    const enrichment = PROFILE_ENRICHMENTS[demo.email] ?? DEFAULT_ENRICHMENT;
+
     const profile = await prisma.profile.upsert({
       where: { userId: user.id },
       update: {
@@ -140,6 +308,13 @@ async function main() {
         birthDate: demo.birthDate,
         city: demo.city,
         interests: demo.interests,
+        nationality: enrichment.nationality,
+        languages: enrichment.languages,
+        lifestyle: enrichment.lifestyle,
+        industry: enrichment.industry,
+        education: enrichment.education,
+        relationshipGoal: enrichment.relationshipGoal,
+        personalityPrompts: enrichment.personalityPrompts,
       },
       create: {
         userId: user.id,
@@ -150,9 +325,22 @@ async function main() {
         city: demo.city,
         country,
         interests: demo.interests,
+        nationality: enrichment.nationality,
+        languages: enrichment.languages,
+        lifestyle: enrichment.lifestyle,
+        industry: enrichment.industry,
+        education: enrichment.education,
+        relationshipGoal: enrichment.relationshipGoal,
+        personalityPrompts: enrichment.personalityPrompts,
       },
     });
     await syncLocation(profile.id, demo.lat, demo.lng);
+
+    await prisma.userPreference.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id },
+      update: {},
+    });
 
     await prisma.subscription.upsert({
       where: { userId: user.id },
@@ -164,6 +352,17 @@ async function main() {
   }
 
   console.log(`Seeded 1 admin + ${count} demo users across 6 countries`);
+
+  const events = [
+    { title: 'Ladies Brunch Dubai', description: 'Social brunch for expat women', city: 'Dubai', country: 'AE', category: 'Brunch', startsAt: new Date(Date.now() + 3 * 86400000), maxAttendees: 30 },
+    { title: 'Beach Meetup Manama', description: 'Sunset beach walk and coffee', city: 'Manama', country: 'BH', category: 'Beach', startsAt: new Date(Date.now() + 5 * 86400000), maxAttendees: 40 },
+    { title: 'Rooftop Social Doha', description: 'Evening mixer with verified members', city: 'Doha', country: 'QA', category: 'Social', startsAt: new Date(Date.now() + 7 * 86400000), maxAttendees: 50 },
+  ];
+  for (const e of events) {
+    await prisma.communityEvent.create({ data: e });
+  }
+  console.log(`Seeded ${events.length} community events`);
+
   console.log('Password for all: admin123!');
   console.log('OTP for all: 123456');
 }

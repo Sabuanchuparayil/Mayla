@@ -6,15 +6,25 @@ import { Card, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LogoutButton } from '@/components/auth/logout-button';
+import { PreferencesPanel } from '@/components/profile/preferences-panel';
+import {
+  PrivacyPanel,
+  ContactsBlockPanel,
+  PushNotificationsPanel,
+  LocaleSelector,
+} from '@/components/settings/privacy-panel';
 import { apiFetch } from '@/lib/api/client';
+import { useLocale } from '@/hooks/use-locale';
 
 export function SettingsPanel() {
+  const { t, locale: appLocale, setLocale: setAppLocale } = useLocale();
   const [tier, setTier] = useState('FREE');
   const [swipesUsed, setSwipesUsed] = useState(0);
   const [swipeLimit, setSwipeLimit] = useState<number | null>(5);
   const [travelMode, setTravelMode] = useState(false);
   const [travelCity, setTravelCity] = useState('');
   const [message, setMessage] = useState('');
+  const [locale, setLocale] = useState('en');
 
   useEffect(() => {
     apiFetch<{ tier: string; swipesUsedToday: number; swipeLimit: number | null }>(
@@ -28,15 +38,34 @@ export function SettingsPanel() {
     });
   }, []);
 
-  async function mockUpgrade(plan: 'GOLD' | 'PLATINUM') {
-    const result = await apiFetch<{ message: string }>('/api/billing/checkout', {
-      method: 'POST',
-      body: JSON.stringify({ tier: plan }),
-    });
+  async function startCheckout(plan: 'GOLD' | 'PLATINUM') {
+    const result = await apiFetch<{ message: string; checkoutUrl?: string | null; mock?: boolean }>(
+      '/api/billing/checkout',
+      {
+        method: 'POST',
+        body: JSON.stringify({ tier: plan }),
+      },
+    );
     if (result.success) {
+      if (result.data.checkoutUrl) {
+        window.location.href = result.data.checkoutUrl;
+        return;
+      }
       setMessage(result.data.message);
       setTier(plan);
       setSwipeLimit(null);
+    }
+  }
+
+  async function cancelSubscription() {
+    if (!confirm('Cancel your subscription? You will lose premium features at the end of the billing period.')) {
+      return;
+    }
+    const result = await apiFetch<{ message: string }>('/api/billing/cancel', { method: 'POST' });
+    if (result.success) {
+      setMessage(result.data.message);
+      setTier('FREE');
+      setSwipeLimit(5);
     }
   }
 
@@ -68,7 +97,7 @@ export function SettingsPanel() {
     <div className="space-y-6 animate-fade-up">
       {/* Subscription */}
       <Card>
-        <CardHeader title="Subscription" description={`Current plan: ${tier}`} />
+        <CardHeader title={t('subscription')} description={`Current plan: ${tier}`} />
         <div className="mb-5 flex items-center gap-2">
           <div className="flex gap-1">
             {swipeLimit != null ? (
@@ -89,19 +118,56 @@ export function SettingsPanel() {
           ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => mockUpgrade('GOLD')}>
+          <Button variant="outline" onClick={() => void startCheckout('GOLD')}>
             <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-amber-500">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
-            Upgrade to Gold
+            {t('upgradeGold')}
           </Button>
-          <Button variant="secondary" onClick={() => mockUpgrade('PLATINUM')}>
+          <Button variant="secondary" onClick={() => void startCheckout('PLATINUM')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
             </svg>
-            Upgrade to Platinum
+            {t('upgradePlatinum')}
           </Button>
+          {tier !== 'FREE' ? (
+            <Button variant="outline" onClick={() => void cancelSubscription()}>
+              {t('cancelSubscription')}
+            </Button>
+          ) : null}
         </div>
+      </Card>
+
+      <PreferencesPanel />
+
+      <Card>
+        <CardHeader title={t('privacyControls')} description="Pause, incognito, and photo privacy" />
+        <PrivacyPanel />
+      </Card>
+
+      <Card>
+        <CardHeader title={t('blockContacts')} description="Hide from people in your phone book" />
+        <ContactsBlockPanel />
+      </Card>
+
+      <Card>
+        <CardHeader title={t('notifications')} description="Stay updated on matches and messages" />
+        <PushNotificationsPanel />
+      </Card>
+
+      <Card>
+        <CardHeader title={t('language')} description="App interface language" />
+        <LocaleSelector
+          value={locale || appLocale}
+          onChange={async (v) => {
+            setLocale(v);
+            setAppLocale(v as typeof appLocale);
+            await apiFetch('/api/users/me/profile', {
+              method: 'PATCH',
+              body: JSON.stringify({ locale: v }),
+            });
+          }}
+        />
       </Card>
 
       {/* Travel mode */}

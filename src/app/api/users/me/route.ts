@@ -7,6 +7,7 @@ import { requireCurrentUser } from '@/lib/auth/guard';
 import { createAuditLog, AuditActions } from '@/lib/auth/audit';
 import { getClientIp } from '@/lib/rate-limit';
 import { updateProfileSchema, onboardingSchema } from '@/lib/validators/auth';
+import { onboardingProfileSchema } from '@/lib/validators/profile';
 import { clearAuthCookies, getRefreshTokenFromCookies } from '@/lib/auth/cookies';
 import { revokeRefreshToken } from '@/lib/auth/session';
 import { verifyRefreshToken } from '@/lib/auth/jwt';
@@ -52,7 +53,40 @@ export async function PATCH(request: Request) {
 export async function PUT(request: Request) {
   try {
     const currentUser = await requireCurrentUser(request);
-    const body = parseBody(onboardingSchema, await request.json());
+    const raw = await request.json();
+
+    // Support legacy single-name onboarding
+    const legacy = onboardingSchema.safeParse(raw);
+    if (legacy.success && !raw.birthDate && !raw.relationshipGoal) {
+      const body = legacy.data;
+      const user = await db.user.update({
+        where: { id: currentUser.id },
+        data: {
+          name: body.name,
+          avatarUrl: body.avatarUrl ?? null,
+          onboardingCompleted: true,
+        },
+      });
+
+      await db.profile.upsert({
+        where: { userId: user.id },
+        create: { userId: user.id, displayName: body.name },
+        update: { displayName: body.name },
+      });
+
+      await ensureSubscription(user.id);
+      await createAuditLog({
+        userId: user.id,
+        action: AuditActions.ONBOARDING_COMPLETE,
+        resource: 'onboarding',
+        ip: getClientIp(request),
+        userAgent: request.headers.get('user-agent') ?? undefined,
+      });
+
+      return apiSuccess({ user: toSafeUser(user) });
+    }
+
+    const body = parseBody(onboardingProfileSchema, raw);
 
     const user = await db.user.update({
       where: { id: currentUser.id },
@@ -68,10 +102,42 @@ export async function PUT(request: Request) {
       create: {
         userId: user.id,
         displayName: body.name,
+        birthDate: new Date(body.birthDate),
+        gender: body.gender,
+        nationality: body.nationality,
+        languages: body.languages,
+        education: body.education ?? null,
+        jobTitle: body.jobTitle ?? null,
+        industry: body.industry ?? null,
+        relationshipGoal: body.relationshipGoal,
+        lifestyle: body.lifestyle ?? [],
+        interests: body.interests ?? [],
+        personalityPrompts: body.personalityPrompts ?? [],
+        city: body.city ?? null,
+        country: body.country ?? 'AE',
       },
       update: {
         displayName: body.name,
+        birthDate: new Date(body.birthDate),
+        gender: body.gender,
+        nationality: body.nationality,
+        languages: body.languages,
+        education: body.education ?? null,
+        jobTitle: body.jobTitle ?? null,
+        industry: body.industry ?? null,
+        relationshipGoal: body.relationshipGoal,
+        lifestyle: body.lifestyle ?? [],
+        interests: body.interests ?? [],
+        personalityPrompts: body.personalityPrompts ?? [],
+        city: body.city ?? null,
+        country: body.country ?? 'AE',
       },
+    });
+
+    await db.userPreference.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id },
+      update: {},
     });
 
     await ensureSubscription(user.id);

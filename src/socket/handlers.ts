@@ -1,8 +1,11 @@
 import type { Server, Socket } from 'socket.io';
 import { verifyAccessToken } from '@/lib/auth/jwt';
 import { connectMongoDB } from '@/lib/mongodb';
-import { userCanAccessMatch } from '@/lib/matches';
+import { userCanAccessMatch, getMatchForUser } from '@/lib/matches';
 import { Message } from '@/models/message.model';
+import { db } from '@/lib/db';
+import { recordMessageSent, recordMessageReply } from '@/lib/gentleman-score';
+import { sendPushToUser } from '@/lib/push';
 
 async function authenticateSocket(socket: Socket): Promise<string | null> {
   const token =
@@ -51,12 +54,54 @@ export function registerSocketHandlers(io: Server): void {
           return;
         }
 
+        const match = await getMatchForUser(payload.matchId, userId);
+        if (match) {
+          const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+          const otherProfile = await db.profile.findUnique({ where: { userId: otherUserId } });
+          if (otherProfile?.ladiesFirstMessaging && otherProfile.gender === 'FEMALE') {
+            const priorFromOther = await Message.findOne({
+              matchId: payload.matchId,
+              senderId: otherUserId,
+            });
+            const senderProfile = await db.profile.findUnique({ where: { userId } });
+            if (!priorFromOther && senderProfile?.gender === 'MALE') {
+              socket.emit('error', { message: 'She prefers to message first' });
+              return;
+            }
+          }
+        }
+
         await connectMongoDB();
+
+        const priorMessage = await Message.findOne({
+          matchId: payload.matchId,
+          senderId: { $ne: userId },
+        }).sort({ createdAt: -1 });
+
         const message = await Message.create({
           matchId: payload.matchId,
           senderId: userId,
           content: payload.content.slice(0, 5000),
         });
+
+        await recordMessageSent(userId, payload.content.length);
+
+        if (match) {
+          const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+          if (priorMessage) {
+            const replyDelayMs = Date.now() - new Date(priorMessage.createdAt).getTime();
+            await recordMessageReply(priorMessage.senderId, replyDelayMs);
+          }
+          const senderProfile = await db.profile.findUnique({
+            where: { userId },
+            select: { displayName: true },
+          });
+          void sendPushToUser(otherUserId, {
+            title: 'New message',
+            body: `${senderProfile?.displayName ?? 'Someone'} sent you a message`,
+            url: `/chat?match=${payload.matchId}`,
+          });
+        }
 
         io.to(`match:${payload.matchId}`).emit('message:new', {
           id: message._id.toString(),

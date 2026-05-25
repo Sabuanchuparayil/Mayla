@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { apiFetch } from '@/lib/api/client';
 import { useSocket } from '@/hooks/use-socket';
 import { cn } from '@/lib/utils';
+import { BlockReportModal } from '@/components/safety/block-report-modal';
 
 type Match = {
   id: string;
@@ -30,11 +31,24 @@ function HeartIcon({ className }: { className?: string }) {
   );
 }
 
-export function ChatPanel({ matchId }: { matchId: string }) {
+export function ChatPanel({
+  matchId,
+  otherUser,
+  onUnmatched,
+}: {
+  matchId: string;
+  otherUser: { id: string; displayName: string };
+  onUnmatched?: () => void;
+}) {
   const { socket, connected } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [myId, setMyId] = useState('');
+  const [icebreakers, setIcebreakers] = useState<string[]>([]);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showBlockReport, setShowBlockReport] = useState(false);
+  const [locale, setLocale] = useState('en');
+  const [translations, setTranslations] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,8 +58,24 @@ export function ChatPanel({ matchId }: { matchId: string }) {
     apiFetch<{ messages: Message[] }>(`/api/matches/${matchId}/messages`).then((r) => {
       if (r.success) setMessages(r.data.messages);
     });
+    apiFetch<{ icebreakers: string[] }>(`/api/matches/${matchId}/icebreakers`).then((r) => {
+      if (r.success) setIcebreakers(r.data.icebreakers);
+    });
+    apiFetch<{ profile: { locale?: string } | null }>('/api/users/me/profile').then((r) => {
+      if (r.success && r.data.profile?.locale) setLocale(r.data.profile.locale);
+    });
     fetch(`/api/matches/${matchId}/messages`, { method: 'PATCH', credentials: 'include' });
   }, [matchId]);
+
+  async function translateMessage(messageId: string, text: string) {
+    const result = await apiFetch<{ translated: string }>('/api/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, targetLang: locale }),
+    });
+    if (result.success) {
+      setTranslations((prev) => ({ ...prev, [messageId]: result.data.translated }));
+    }
+  }
 
   useEffect(() => {
     if (!socket) return;
@@ -71,24 +101,83 @@ export function ChatPanel({ matchId }: { matchId: string }) {
     setText('');
   }
 
+  async function unmatch() {
+    if (!confirm(`Unmatch with ${otherUser.displayName}?`)) return;
+    const result = await apiFetch(`/api/matches/${matchId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action: 'unmatch' }),
+    });
+    if (result.success) {
+      onUnmatched?.();
+    }
+  }
+
   return (
     <Card className="flex h-[500px] flex-col overflow-hidden p-0">
-      {/* Connection indicator */}
-      <div className="flex items-center gap-2 border-b border-card-border px-5 py-3">
-        <span className={cn('h-2 w-2 rounded-full', connected ? 'bg-emerald-400' : 'bg-warm-400 animate-pulse')} />
-        <span className="text-xs text-muted-foreground">
-          {connected ? 'Connected' : 'Connecting...'}
-        </span>
+      <div className="flex items-center justify-between border-b border-card-border px-5 py-3">
+        <div className="flex items-center gap-2">
+          <span className={cn('h-2 w-2 rounded-full', connected ? 'bg-emerald-400' : 'bg-warm-400 animate-pulse')} />
+          <span className="text-xs text-muted-foreground">
+            {connected ? 'Connected' : 'Connecting...'}
+          </span>
+        </div>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowMenu((s) => !s)}
+            className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-warm-200/50"
+          >
+            ···
+          </button>
+          {showMenu ? (
+            <div className="absolute right-0 top-full z-10 mt-1 w-40 rounded-xl border border-card-border bg-card py-1 shadow-lg">
+              <button
+                type="button"
+                className="block w-full px-4 py-2 text-left text-sm hover:bg-warm-200/30"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowBlockReport(true);
+                }}
+              >
+                Report
+              </button>
+              <button
+                type="button"
+                className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                onClick={() => {
+                  setShowMenu(false);
+                  void unmatch();
+                }}
+              >
+                Unmatch
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto p-5">
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <HeartIcon className="h-8 w-8 text-primary/20" />
-            <p className="mt-3 text-sm text-muted-foreground/60">
+            <p className="text-sm text-muted-foreground/60">
               Send the first message to break the ice
             </p>
+            {icebreakers.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-2 px-4">
+                {icebreakers.map((line) => (
+                  <button
+                    key={line}
+                    type="button"
+                    onClick={() => setText(line)}
+                    className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs text-primary hover:bg-primary/10"
+                  >
+                    {line}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
         {messages.map((m) => (
@@ -102,6 +191,18 @@ export function ChatPanel({ matchId }: { matchId: string }) {
             )}
           >
             {m.content}
+            {translations[m.id] ? (
+              <p className="mt-1 border-t border-white/20 pt-1 text-xs opacity-80">{translations[m.id]}</p>
+            ) : null}
+            {m.senderId !== myId && !translations[m.id] ? (
+              <button
+                type="button"
+                onClick={() => void translateMessage(m.id, m.content)}
+                className="mt-1 block text-[10px] underline opacity-70"
+              >
+                Translate
+              </button>
+            ) : null}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -122,6 +223,17 @@ export function ChatPanel({ matchId }: { matchId: string }) {
           </svg>
         </Button>
       </form>
+
+      <BlockReportModal
+        userId={otherUser.id}
+        displayName={otherUser.displayName}
+        open={showBlockReport}
+        onClose={() => setShowBlockReport(false)}
+        onBlocked={() => {
+          setShowBlockReport(false);
+          onUnmatched?.();
+        }}
+      />
     </Card>
   );
 }
@@ -190,7 +302,16 @@ export function ChatInbox() {
           </li>
         ))}
       </ul>
-      {selected ? <ChatPanel matchId={selected} /> : null}
+      {selected ? (
+        <ChatPanel
+          matchId={selected}
+          otherUser={matches.find((m) => m.id === selected)!.otherUser}
+          onUnmatched={() => {
+            setMatches((prev) => prev.filter((m) => m.id !== selected));
+            setSelected(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

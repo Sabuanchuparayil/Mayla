@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireServerUser } from '@/lib/auth/server';
 import { db } from '@/lib/db';
-import { Card, CardHeader } from '@/components/ui/card';
+import { AdminDashboard } from '@/components/admin/admin-dashboard';
 
 export default async function AdminPage() {
   const user = await requireServerUser();
@@ -18,32 +18,16 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-8 dark:bg-black">
-      <Card className="mx-auto max-w-4xl">
-        <CardHeader title="Admin Dashboard" description="Mayla platform overview" />
-        <dl className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <dt className="text-sm text-zinc-500">Users</dt>
-            <dd className="text-2xl font-semibold">{userCount}</dd>
-          </div>
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <dt className="text-sm text-zinc-500">Matches</dt>
-            <dd className="text-2xl font-semibold">{matchCount}</dd>
-          </div>
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <dt className="text-sm text-zinc-500">Pending reports</dt>
-            <dd className="text-2xl font-semibold">{reportCount}</dd>
-          </div>
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <dt className="text-sm text-zinc-500">Swipes</dt>
-            <dd className="text-2xl font-semibold">{swipeCount}</dd>
-          </div>
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <dt className="text-sm text-zinc-500">Audit logs</dt>
-            <dd className="text-2xl font-semibold">{auditCount}</dd>
-          </div>
-        </dl>
-      </Card>
+    <div className="min-h-screen p-4 md:p-8">
+      <AdminDashboard
+        initialStats={{
+          userCount,
+          matchCount,
+          auditCount,
+          reportCount,
+          swipeCount,
+        }}
+      />
     </div>
   );
 }

@@ -31,3 +31,35 @@ export async function listPendingReports(limit = 50) {
     take: limit,
   });
 }
+
+export async function resolveReport(
+  reportId: string,
+  action: 'DISMISS' | 'WARN' | 'BAN',
+) {
+  const report = await db.userReport.findUnique({ where: { id: reportId } });
+  if (!report) return null;
+
+  if (action === 'DISMISS') {
+    return db.userReport.update({
+      where: { id: reportId },
+      data: { status: 'DISMISSED' },
+    });
+  }
+
+  if (action === 'WARN' || action === 'BAN') {
+    const { recordReportAgainst } = await import('@/lib/gentleman-score');
+    await recordReportAgainst(report.reportedId);
+    if (action === 'BAN') {
+      await db.user.update({
+        where: { id: report.reportedId },
+        data: { onboardingCompleted: false },
+      });
+    }
+    return db.userReport.update({
+      where: { id: reportId },
+      data: { status: 'REVIEWED' },
+    });
+  }
+
+  return report;
+}

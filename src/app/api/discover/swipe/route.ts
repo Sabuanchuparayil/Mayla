@@ -6,6 +6,8 @@ import { parseBody } from '@/lib/api/validate';
 import { requireCurrentUser } from '@/lib/auth/guard';
 import { recordSwipe } from '@/lib/discover';
 import { emitToUser } from '@/lib/socket-io';
+import { sendPushToUser } from '@/lib/push';
+import { db } from '@/lib/db';
 import { z } from 'zod';
 
 const swipeSchema = z.object({
@@ -33,6 +35,22 @@ export async function POST(request: Request) {
       emitToUser(body.targetUserId, 'match:new', {
         matchId: result.matchId,
         fromUserId: user.id,
+      });
+
+      const [senderProfile, targetProfile] = await Promise.all([
+        db.profile.findUnique({ where: { userId: user.id }, select: { displayName: true } }),
+        db.profile.findUnique({ where: { userId: body.targetUserId }, select: { displayName: true } }),
+      ]);
+
+      void sendPushToUser(body.targetUserId, {
+        title: "It's a match!",
+        body: `You matched with ${senderProfile?.displayName ?? 'someone new'}`,
+        url: `/chat?match=${result.matchId}`,
+      });
+      void sendPushToUser(user.id, {
+        title: "It's a match!",
+        body: `You matched with ${targetProfile?.displayName ?? 'someone new'}`,
+        url: `/chat?match=${result.matchId}`,
       });
     }
 
