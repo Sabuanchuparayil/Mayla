@@ -4,22 +4,19 @@ import { COOKIE_NAMES } from '@/lib/constants';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-function buildCsp(nonce: string): string {
-  const directives = [
-    "default-src 'self'",
-    isDev
-      ? `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval'`
-      : `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'strict-dynamic'`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
-    "connect-src 'self' ws: wss:",
-    "worker-src 'self'",
-    "manifest-src 'self'",
-    "frame-ancestors 'self'",
-  ];
-  return directives.join('; ');
-}
+const csp = [
+  "default-src 'self'",
+  isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' ws: wss:",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
 
 const publicPaths = [
   '/',
@@ -96,15 +93,7 @@ async function verifyAccessTokenEdge(token: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const csp = buildCsp(nonce);
-
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
-  requestHeaders.set('Content-Security-Policy', csp);
-
-  function applyHeaders(response: NextResponse): NextResponse {
-    response.headers.set('x-nonce', nonce);
+  function withCsp(response: NextResponse): NextResponse {
     response.headers.set('Content-Security-Policy', csp);
     return response;
   }
@@ -119,7 +108,7 @@ export async function middleware(request: NextRequest) {
     const origin = request.headers.get('origin');
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (origin && appUrl && !origin.startsWith(appUrl)) {
-      return applyHeaders(
+      return withCsp(
         withPathname(
           NextResponse.json(
             { success: false, error: { code: 'FORBIDDEN', message: 'Invalid origin' } },
@@ -135,21 +124,16 @@ export async function middleware(request: NextRequest) {
     if (session && isAuthPath(pathname)) {
       const raw = request.nextUrl.searchParams.get('redirect') ?? '/dashboard';
       const redirect = isSafeRedirect(raw) ? raw : '/dashboard';
-      return applyHeaders(
+      return withCsp(
         withPathname(NextResponse.redirect(new URL(redirect, request.url)), pathname),
       );
     }
-    return applyHeaders(
-      withPathname(
-        NextResponse.next({ request: { headers: requestHeaders } }),
-        pathname,
-      ),
-    );
+    return withCsp(withPathname(NextResponse.next(), pathname));
   }
 
   if (!session) {
     if (isApiPath(pathname)) {
-      return applyHeaders(
+      return withCsp(
         withPathname(
           NextResponse.json(
             { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
@@ -162,24 +146,19 @@ export async function middleware(request: NextRequest) {
     if (isProtectedPage(pathname)) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
-      return applyHeaders(
+      return withCsp(
         withPathname(NextResponse.redirect(loginUrl), pathname),
       );
     }
   }
 
   if (session && pathname.startsWith('/admin') && session.role !== 'ADMIN') {
-    return applyHeaders(
+    return withCsp(
       withPathname(NextResponse.redirect(new URL('/dashboard', request.url)), pathname),
     );
   }
 
-  return applyHeaders(
-    withPathname(
-      NextResponse.next({ request: { headers: requestHeaders } }),
-      pathname,
-    ),
-  );
+  return withCsp(withPathname(NextResponse.next(), pathname));
 }
 
 export const config = {
