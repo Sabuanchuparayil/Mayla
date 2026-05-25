@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client, S3_BUCKET } from '@/lib/s3';
 import { connectMongoDB } from '@/lib/mongodb';
@@ -89,10 +89,10 @@ export async function POST(req: NextRequest) {
     expiresAt,
   });
 
-  // Generate 15-min presigned URL for the recipient to view
+  // Generate 15-min presigned GET URL — never use PutObjectCommand here
   const presignedUrl = await getSignedUrl(
     s3Client,
-    new PutObjectCommand({ Bucket: S3_BUCKET, Key: key }),
+    new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }),
     { expiresIn: PRESIGN_TTL },
   );
 

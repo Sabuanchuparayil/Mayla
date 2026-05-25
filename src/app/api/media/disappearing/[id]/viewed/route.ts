@@ -4,6 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client, S3_BUCKET } from '@/lib/s3';
 import { connectMongoDB } from '@/lib/mongodb';
 import { DisappearingMedia } from '@/models/disappearing-media.model';
+import { getIO } from '@/lib/socket-io';
 
 const VIEW_PRESIGN_TTL = 60; // 1 minute to view after marking
 
@@ -55,6 +56,14 @@ export async function PUT(
   // Mark viewed
   media.viewedAt = new Date();
   await media.save();
+
+  // Notify sender via Socket.IO
+  getIO()?.to(`match:${media.matchId}`).emit('media:viewed', {
+    mediaId: id,
+    matchId: media.matchId,
+    viewedBy: userId,
+    viewedAt: media.viewedAt,
+  });
 
   // Delete from S3 (fire-and-forget, don't block response)
   s3Client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: media.s3Key })).catch(() => {});

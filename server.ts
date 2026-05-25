@@ -3,6 +3,7 @@ import next from 'next';
 import { Server } from 'socket.io';
 import { jwtVerify } from 'jose';
 import { registerChatHandlers } from './src/socket/handlers';
+import { setIO } from './src/lib/socket-io';
 
 const port = parseInt(process.env.PORT ?? '3000', 10);
 const dev = process.env.NODE_ENV !== 'production';
@@ -36,6 +37,8 @@ io.use(async (socket, next) => {
     next(new Error('INVALID_TOKEN'));
   }
 });
+
+setIO(io);
 
 io.on('connection', (socket) => {
   registerChatHandlers(io, socket);
