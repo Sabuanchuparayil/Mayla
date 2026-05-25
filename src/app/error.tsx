@@ -1,0 +1,34 @@
+'use client';
+
+import { useEffect } from 'react';
+
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error('Unhandled error:', error);
+  }, [error]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="glass-card max-w-md p-8 text-center">
+        <h2 className="font-[family-name:var(--font-playfair)] text-xl font-semibold text-foreground">
+          Something went wrong
+        </h2>
+        <p className="mt-3 text-sm text-muted-foreground">
+          We encountered an unexpected error. Please try again.
+        </p>
+        <button
+          onClick={reset}
+          className="mt-6 rounded-xl bg-gradient-to-r from-primary-500 to-primary-400 px-6 py-2 text-sm font-medium text-white"
+        >
+          Try again
+        </button>
+      </div>
+    </div>
+  );
+}
