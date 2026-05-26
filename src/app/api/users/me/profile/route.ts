@@ -1,12 +1,18 @@
 export const dynamic = 'force-dynamic';
 
-import { handleApiError } from '@/lib/api/errors';
+import { handleApiError, AppError, ErrorCodes } from '@/lib/api/errors';
 import { apiSuccess } from '@/lib/api/response';
 import { parseBody } from '@/lib/api/validate';
 import { requireCurrentUser } from '@/lib/auth/guard';
 import { profileUpdateSchema } from '@/lib/validators/profile';
 import { syncTravelLocation } from '@/lib/geo';
 import { computeProfileCompleteness, getCompletenessHints } from '@/lib/profile/completeness';
+import { getUserTier, tierFeatures } from '@/lib/subscription';
+import {
+  parseBlurredPhotoIndices,
+  resolveBlurredPhotoIndices,
+  sanitizeBlurredPhotoIndices,
+} from '@/lib/photo-privacy';
 import { db } from '@/lib/db';
 
 function parseJsonArray(value: unknown): string[] {
@@ -40,6 +46,13 @@ export async function GET(request: Request) {
 
     const completeness = computeProfileCompleteness(profile);
     const hints = getCompletenessHints(profile);
+    const tier = await getUserTier(user.id);
+    const photos = parseJsonArray(profile.photos);
+    const blurredPhotoIndices = resolveBlurredPhotoIndices(
+      photos.length,
+      profile.blurredPhotoIndices,
+      profile.photoBlurUntilMatch,
+    );
 
     return apiSuccess({
       profile: {
@@ -47,12 +60,14 @@ export async function GET(request: Request) {
         interests: parseJsonArray(profile.interests),
         languages: parseJsonArray(profile.languages),
         lifestyle: parseJsonArray(profile.lifestyle),
-        photos: parseJsonArray(profile.photos),
+        photos,
         personalityPrompts: parsePrompts(profile.personalityPrompts),
         dreamDates: parseJsonArray(profile.dreamDates),
+        blurredPhotoIndices,
       },
       completeness,
       hints,
+      canControlPhotoBlur: tierFeatures(tier).photoPrivacyControls,
     });
   } catch (error) {
     return handleApiError(error);
@@ -63,6 +78,27 @@ export async function PATCH(request: Request) {
   try {
     const user = await requireCurrentUser(request);
     const body = parseBody(profileUpdateSchema, await request.json());
+    const tier = await getUserTier(user.id);
+    const features = tierFeatures(tier);
+
+    if (body.blurredPhotoIndices !== undefined && !features.photoPrivacyControls) {
+      throw new AppError(
+        ErrorCodes.FORBIDDEN,
+        'Upgrade to Gold to control photo blur per image',
+        403,
+      );
+    }
+
+    if (body.photoBlurUntilMatch !== undefined && !features.photoPrivacyControls) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'Upgrade to Gold for photo privacy controls', 403);
+    }
+
+    const existing = await db.profile.findUnique({ where: { userId: user.id } });
+    const nextPhotos = body.photos ?? parseJsonArray(existing?.photos);
+    const nextBlurred =
+      body.blurredPhotoIndices !== undefined
+        ? sanitizeBlurredPhotoIndices(body.blurredPhotoIndices, nextPhotos.length)
+        : undefined;
 
     const profile = await db.profile.upsert({
       where: { userId: user.id },
@@ -124,6 +160,7 @@ export async function PATCH(request: Request) {
         ...(body.relocateWillingness !== undefined ? { relocateWillingness: body.relocateWillingness } : {}),
         ...(body.lifestyleExpectations !== undefined ? { lifestyleExpectations: body.lifestyleExpectations } : {}),
         ...(body.photoBlurUntilMatch !== undefined ? { photoBlurUntilMatch: body.photoBlurUntilMatch } : {}),
+        ...(nextBlurred !== undefined ? { blurredPhotoIndices: nextBlurred, photoBlurUntilMatch: false } : {}),
         ...(body.locale !== undefined ? { locale: body.locale } : {}),
       },
     });
@@ -143,8 +180,21 @@ export async function PATCH(request: Request) {
     }
 
     const completeness = computeProfileCompleteness(profile);
+    const photos = parseJsonArray(profile.photos);
 
-    return apiSuccess({ profile, completeness });
+    return apiSuccess({
+      profile: {
+        ...profile,
+        photos,
+        blurredPhotoIndices: resolveBlurredPhotoIndices(
+          photos.length,
+          profile.blurredPhotoIndices,
+          profile.photoBlurUntilMatch,
+        ),
+      },
+      completeness,
+      canControlPhotoBlur: features.photoPrivacyControls,
+    });
   } catch (error) {
     return handleApiError(error);
   }

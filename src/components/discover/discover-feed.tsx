@@ -1,14 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChipSelect } from '@/components/ui/chip-select';
+import { DiscoverCardSkeleton } from '@/components/ui/skeleton';
 import { apiFetch } from '@/lib/api/client';
 import { RELATIONSHIP_GOALS } from '@/lib/constants/profile-options';
 import { MatchCelebration } from '@/components/discover/match-celebration';
 import { BlockReportModal } from '@/components/safety/block-report-modal';
+import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { useLocale } from '@/hooks/use-locale';
+import { useSwipeGesture } from '@/hooks/use-swipe-gesture';
+import { ProfilePhotoGallery } from '@/components/profile/profile-photo-gallery';
 
 type Profile = {
   userId: string;
@@ -34,6 +38,8 @@ type Profile = {
   isAvailable: boolean;
   gentlemanStars: number;
   dreamDates: string[];
+  blurredPhotoIndices: number[];
+  scoreBreakdown?: import('@/lib/compatibility').CompatibilityBreakdown;
 };
 
 type MatchResult = {
@@ -41,6 +47,7 @@ type MatchResult = {
   matchId?: string;
   compatibilityScore?: number;
   matchReasons?: string[];
+  scoreBreakdown?: import('@/lib/compatibility').CompatibilityBreakdown;
 };
 
 type GiftCatalogItem = {
@@ -70,6 +77,7 @@ export function DiscoverFeed() {
   const [swipeAnim, setSwipeAnim] = useState<'left' | 'right' | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [canFilterGoals, setCanFilterGoals] = useState(false);
+  const [maxGoalFilters, setMaxGoalFilters] = useState(0);
   const [goalFilters, setGoalFilters] = useState<string[]>([]);
   const [matchedProfile, setMatchedProfile] = useState<Profile | null>(null);
   const [canSeeAvailability, setCanSeeAvailability] = useState(false);
@@ -83,6 +91,8 @@ export function DiscoverFeed() {
   const [giftMessage, setGiftMessage] = useState('');
   const [sendingGift, setSendingGift] = useState(false);
   const [giftSent, setGiftSent] = useState(false);
+  const [undoTarget, setUndoTarget] = useState<{ profile: Profile; expiresAt: number } | null>(null);
+  const swipingRef = useRef(false);
 
   const loadFeed = useCallback(async (coords?: { lat: number; lng: number }) => {
     setLoading(true);
@@ -111,14 +121,16 @@ export function DiscoverFeed() {
     setMatchResult(null);
     setDateRequestSent(false);
     setGiftSent(false);
+    setUndoTarget(null);
   }, []);
 
   useEffect(() => {
-    apiFetch<{ canFilterGoals: boolean; preferences: { relationshipGoals: string[] } }>(
+    apiFetch<{ canFilterGoals: boolean; maxGoalFilters: number; preferences: { relationshipGoals: string[] } }>(
       '/api/users/me/preferences',
     ).then((r) => {
       if (r.success) {
         setCanFilterGoals(r.data.canFilterGoals);
+        setMaxGoalFilters(r.data.maxGoalFilters);
         setGoalFilters(r.data.preferences.relationshipGoals);
       }
     });
@@ -201,15 +213,55 @@ export function DiscoverFeed() {
 
   const current = profiles[index];
 
+  const swipeGesture = useSwipeGesture({
+    onSwipeLeft: () => {
+      if (current && !swipingRef.current) void swipe('PASS');
+    },
+    onSwipeRight: () => {
+      if (current && !swipingRef.current) void swipe('LIKE');
+    },
+  });
+
+  useEffect(() => {
+    if (!undoTarget) return;
+    const remaining = undoTarget.expiresAt - Date.now();
+    if (remaining <= 0) {
+      setUndoTarget(null);
+      return;
+    }
+    const timer = setTimeout(() => setUndoTarget(null), remaining);
+    return () => clearTimeout(timer);
+  }, [undoTarget]);
+
+  async function undoSwipe() {
+    if (!undoTarget) return;
+    const result = await apiFetch('/api/discover/swipe', {
+      method: 'DELETE',
+      body: JSON.stringify({ targetUserId: undoTarget.profile.userId }),
+    });
+    if (result.success) {
+      setIndex((i) => Math.max(0, i - 1));
+      setSwipesUsed((n) => Math.max(0, n - 1));
+      setUndoTarget(null);
+      setMatchResult(null);
+      setMatchedProfile(null);
+    } else {
+      setError(result.error.message);
+      setUndoTarget(null);
+    }
+  }
+
   useEffect(() => {
     setDateRequestSent(false);
     setGiftSent(false);
   }, [current?.userId]);
 
   async function swipe(action: 'LIKE' | 'PASS') {
-    if (!current) return;
+    if (!current || swipingRef.current) return;
+    swipingRef.current = true;
     setError('');
     setSwipeAnim(action === 'LIKE' ? 'right' : 'left');
+    const swipedProfile = current;
 
     const result = await apiFetch<MatchResult>('/api/discover/swipe', {
       method: 'POST',
@@ -218,13 +270,17 @@ export function DiscoverFeed() {
 
     setTimeout(() => {
       setSwipeAnim(null);
+      swipingRef.current = false;
       if (!result.success) {
         setError(result.error.message);
         return;
       }
       if (result.data.matched) {
         setMatchResult(result.data);
-        setMatchedProfile(current);
+        setMatchedProfile(swipedProfile);
+        setUndoTarget(null);
+      } else {
+        setUndoTarget({ profile: swipedProfile, expiresAt: Date.now() + 60_000 });
       }
       setSwipesUsed((n) => n + 1);
       setIndex((i) => i + 1);
@@ -233,9 +289,8 @@ export function DiscoverFeed() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="mt-4 text-sm text-muted-foreground">Finding people near you...</p>
+      <div className="mx-auto max-w-md space-y-5">
+        <DiscoverCardSkeleton />
       </div>
     );
   }
@@ -283,7 +338,7 @@ export function DiscoverFeed() {
             options={RELATIONSHIP_GOALS.map((g) => ({ value: g.value, label: g.label }))}
             value={goalFilters}
             onChange={saveGoalFilters}
-            max={canFilterGoals ? 7 : 0}
+            max={canFilterGoals ? maxGoalFilters : 0}
           />
         </Card>
       ) : null}
@@ -299,11 +354,23 @@ export function DiscoverFeed() {
           profile={matchedProfile}
           compatibilityScore={matchResult.compatibilityScore ?? 0}
           matchReasons={matchResult.matchReasons ?? []}
+          scoreBreakdown={matchResult.scoreBreakdown ?? matchedProfile.scoreBreakdown}
           onDismiss={() => {
             setMatchResult(null);
             setMatchedProfile(null);
           }}
         />
+      ) : null}
+
+      {undoTarget ? (
+        <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5">
+          <span className="text-sm text-muted-foreground">
+            Passed on {undoTarget.profile.displayName}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => void undoSwipe()}>
+            Undo
+          </Button>
+        </div>
       ) : null}
 
       {!current ? (
@@ -314,10 +381,15 @@ export function DiscoverFeed() {
           <p className="font-[family-name:var(--font-playfair)] text-lg font-semibold text-foreground/70">
             No more profiles nearby
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">Check back later for new faces</p>
-          <Button className="mt-5" variant="outline" onClick={() => loadFeed()}>
-            Refresh
-          </Button>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Try widening your distance filters or check back later for new faces
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <Button variant="outline" onClick={() => setShowFilters(true)}>
+              Adjust filters
+            </Button>
+            <Button onClick={() => loadFeed()}>Refresh</Button>
+          </div>
         </Card>
       ) : (
         <div
@@ -328,24 +400,16 @@ export function DiscoverFeed() {
                 ? 'translate-x-8 rotate-[3deg] opacity-0'
                 : 'animate-scale-in'
           }`}
+          {...swipeGesture}
         >
           <div className="relative h-80 overflow-hidden">
-            {current.photos[0] ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={current.photos[0]} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary-100 via-primary-50 to-accent-100 dark:from-primary-900 dark:via-primary-950 dark:to-accent-900">
-                <span className="font-[family-name:var(--font-playfair)] text-7xl font-semibold text-primary/40">
-                  {current.displayName[0]}
-                </span>
-              </div>
-            )}
-            <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-              {canSeeAvailability && current.isAvailable && current.availabilityLabel ? (
-                <span className="rounded-full bg-amber-500/90 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                  🗓 {current.availabilityLabel}
-                </span>
-              ) : null}
+            <ProfilePhotoGallery
+              photos={current.photos}
+              displayName={current.displayName}
+              blurredPhotoIndices={current.blurredPhotoIndices}
+              mainClassName="h-80"
+            />
+            <div className="absolute left-3 top-3 flex max-w-[70%] flex-wrap gap-2">
               {current.relationshipGoal ? (
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-semibold backdrop-blur-sm ${
@@ -360,29 +424,26 @@ export function DiscoverFeed() {
               <span className="rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
                 {current.compatibilityScore}% match
               </span>
-              {current.gentlemanStars > 0 ? (
-                <span className="rounded-full bg-indigo-500/90 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                  {'★'.repeat(current.gentlemanStars)} Gentleman
-                </span>
-              ) : null}
             </div>
+            {canSeeAvailability && current.isAvailable && current.availabilityLabel ? (
+              <span className="absolute right-3 top-3 rounded-full bg-amber-500/90 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                🗓 {current.availabilityLabel}
+              </span>
+            ) : null}
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-6 pt-16">
               <div className="flex items-end justify-between gap-2">
-                <div className="flex items-end gap-2">
+                <div className="flex flex-wrap items-end gap-2">
                   <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-semibold text-white">
                     {current.displayName}
                     {current.age ? <span className="ml-1 text-white/80">, {current.age}</span> : ''}
                   </h2>
-                  {current.verified ? (
-                    <span className="mb-0.5 rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-                      Verified
-                    </span>
-                  ) : null}
+                  {current.verified ? <VerifiedBadge size="md" /> : null}
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowBlockReport(true)}
-                  className="mb-0.5 rounded-full bg-black/30 px-2 py-1 text-xs text-white/80 backdrop-blur-sm hover:bg-black/50"
+                  aria-label={`More options for ${current.displayName}`}
+                  className="mb-0.5 flex h-11 w-11 items-center justify-center rounded-full bg-black/30 text-white/80 backdrop-blur-sm hover:bg-black/50 active:scale-95"
                 >
                   ···
                 </button>
@@ -399,6 +460,11 @@ export function DiscoverFeed() {
           </div>
 
           <div className="space-y-3 p-6">
+            {current.gentlemanStars > 0 ? (
+              <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                {'★'.repeat(current.gentlemanStars)} Gentleman score
+              </p>
+            ) : null}
             {current.matchReasons.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {current.matchReasons.map((reason) => (
@@ -462,7 +528,8 @@ export function DiscoverFeed() {
               <button
                 type="button"
                 onClick={() => swipe('PASS')}
-                className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl border border-warm-300 text-muted-foreground transition-all duration-300 hover:border-red-300 hover:bg-red-50 hover:text-red-500 dark:border-warm-400/20"
+                aria-label={`Pass on ${current.displayName}`}
+                className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl border border-warm-300 text-muted-foreground transition-all duration-300 hover:border-red-300 hover:bg-red-50 hover:text-red-500 active:scale-95 dark:border-warm-400/20"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -472,7 +539,8 @@ export function DiscoverFeed() {
               <button
                 type="button"
                 onClick={() => swipe('LIKE')}
-                className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-primary-400 text-white shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:brightness-105"
+                aria-label={`Like ${current.displayName}`}
+                className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-primary-400 text-white shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:brightness-105 active:scale-95"
               >
                 <HeartIcon className="h-5 w-5" />
                 <span className="font-medium">{t('like')}</span>

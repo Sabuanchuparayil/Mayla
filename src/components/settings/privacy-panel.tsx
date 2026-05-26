@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api/client';
 import { useLocale } from '@/hooks/use-locale';
+import { parseVCardPhones } from '@/lib/vcard';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -21,8 +22,8 @@ type PrivacyState = {
   profilePaused: boolean;
   incognitoMode: boolean;
   ladiesFirstMessaging: boolean;
-  photoBlurUntilMatch: boolean;
   canUseIncognito: boolean;
+  canControlPhotoBlur: boolean;
 };
 
 export function PrivacyPanel() {
@@ -44,7 +45,14 @@ export function PrivacyPanel() {
       body: JSON.stringify(patch),
     });
     setSaving(false);
-    if (result.success) setState({ ...state, ...result.data, canUseIncognito: state.canUseIncognito });
+    if (result.success) {
+      setState({
+        ...state,
+        ...result.data,
+        canUseIncognito: result.data.canUseIncognito ?? state.canUseIncognito,
+        canControlPhotoBlur: result.data.canControlPhotoBlur ?? state.canControlPhotoBlur,
+      });
+    }
   }
 
   if (!state) return null;
@@ -53,7 +61,6 @@ export function PrivacyPanel() {
     { key: 'profilePaused' as const, label: t('pauseProfile'), desc: 'Hide from Discover while keeping chats' },
     { key: 'incognitoMode' as const, label: t('incognito'), desc: 'Only people you liked can see you', disabled: !state.canUseIncognito },
     { key: 'ladiesFirstMessaging' as const, label: t('ladiesFirst'), desc: 'Only you can start conversations' },
-    { key: 'photoBlurUntilMatch' as const, label: t('photoBlur'), desc: 'Extra photos hidden until you match' },
   ];
 
   return (
@@ -76,6 +83,11 @@ export function PrivacyPanel() {
           </div>
         </label>
       ))}
+      <p className="text-xs text-muted-foreground">
+        {state.canControlPhotoBlur
+          ? 'Photo blur controls are in Profile → Photos. Choose which images stay hidden until match.'
+          : 'Upgrade to Gold to blur or reveal individual photos until match (Profile → Photos).'}
+      </p>
     </div>
   );
 }
@@ -84,16 +96,65 @@ export function ContactsBlockPanel() {
   const [phones, setPhones] = useState('');
   const [synced, setSynced] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [importStatus, setImportStatus] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function sync() {
+  async function syncPhoneList(list: string[]) {
     setLoading(true);
-    const list = phones.split(/[\n,;]+/).map((p) => p.trim()).filter(Boolean);
+    setImportStatus('');
     const result = await apiFetch<{ synced: number }>('/api/users/me/contacts', {
       method: 'POST',
       body: JSON.stringify({ phones: list }),
     });
     setLoading(false);
-    if (result.success) setSynced(result.data.synced);
+    if (result.success) {
+      setSynced(result.data.synced);
+      setPhones(list.join('\n'));
+    }
+  }
+
+  async function sync() {
+    const list = phones.split(/[\n,;]+/).map((p) => p.trim()).filter(Boolean);
+    await syncPhoneList(list);
+  }
+
+  async function importVCard(file: File) {
+    const content = await file.text();
+    const extracted = parseVCardPhones(content);
+    if (extracted.length === 0) {
+      setImportStatus('No phone numbers found in this file');
+      return;
+    }
+    setImportStatus(`Found ${extracted.length} numbers — syncing...`);
+    await syncPhoneList(extracted);
+    setImportStatus(`Imported ${extracted.length} numbers from vCard`);
+  }
+
+  async function pickDeviceContacts() {
+    const nav = navigator as Navigator & {
+      contacts?: {
+        select: (props: string[], opts: { multiple: boolean }) => Promise<{ tel?: string[] }[]>;
+      };
+    };
+
+    if (!nav.contacts?.select) {
+      setImportStatus('Contact picker not supported — use vCard upload or paste numbers');
+      return;
+    }
+
+    try {
+      const contacts = await nav.contacts.select(['tel'], { multiple: true });
+      const extracted = contacts.flatMap((c) => c.tel ?? []).filter(Boolean);
+      if (extracted.length === 0) {
+        setImportStatus('No phone numbers selected');
+        return;
+      }
+      setImportStatus(`Selected ${extracted.length} numbers — syncing...`);
+      await syncPhoneList(extracted);
+      setImportStatus(`Synced ${extracted.length} contacts from your phone`);
+    } catch {
+      setImportStatus('Contact picker cancelled');
+    }
   }
 
   return (
@@ -106,9 +167,34 @@ export function ContactsBlockPanel() {
         value={phones}
         onChange={(e) => setPhones(e.target.value)}
       />
-      <Button size="sm" loading={loading} onClick={() => void sync()}>
-        Sync contacts
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" loading={loading} onClick={() => void sync()}>
+          Sync contacts
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={loading}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Import vCard
+        </Button>
+        <Button size="sm" variant="outline" disabled={loading} onClick={() => void pickDeviceContacts()}>
+          Pick from phone
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".vcf,text/vcard,text/x-vcard"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void importVCard(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      {importStatus ? <p className="text-sm text-muted-foreground">{importStatus}</p> : null}
       {synced !== null ? (
         <p className="text-sm text-emerald-600">{synced} contacts synced — matching profiles hidden</p>
       ) : null}

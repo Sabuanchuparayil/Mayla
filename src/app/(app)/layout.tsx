@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { requireServerUser, requireOnboardingComplete } from '@/lib/auth/server';
 import { AppHeader } from '@/components/layout/app-header';
+import { SkipLink } from '@/components/layout/skip-link';
 import { LocaleProvider } from '@/hooks/use-locale';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -12,9 +13,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <LocaleProvider>
+      <SkipLink />
       <div className="min-h-screen mesh-bg" style={{ background: 'var(--gradient-warm)' }}>
         <AppHeader user={user} />
-        <main className="mx-auto max-w-6xl px-5 py-8 pb-24 md:pb-8">{children}</main>
+        <main id="main-content" className="mx-auto max-w-6xl px-5 py-8 pb-24 md:pb-8">{children}</main>
       </div>
     </LocaleProvider>
   );

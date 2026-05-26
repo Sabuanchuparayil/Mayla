@@ -19,6 +19,7 @@ export async function GET(request: Request) {
       ladiesFirstMessaging: profile?.ladiesFirstMessaging ?? false,
       photoBlurUntilMatch: profile?.photoBlurUntilMatch ?? false,
       canUseIncognito: tierFeatures(tier).incognitoMode,
+      canControlPhotoBlur: tierFeatures(tier).photoPrivacyControls,
     });
   } catch (error) {
     return handleApiError(error);
@@ -33,6 +34,10 @@ export async function PATCH(request: Request) {
 
     if (body.incognitoMode && !tierFeatures(tier).incognitoMode) {
       throw new AppError(ErrorCodes.FORBIDDEN, 'Upgrade to Gold for Incognito mode', 403);
+    }
+
+    if (body.photoBlurUntilMatch !== undefined && !tierFeatures(tier).photoPrivacyControls) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'Upgrade to Gold for photo privacy controls', 403);
     }
 
     const profile = await db.profile.update({
@@ -51,6 +56,7 @@ export async function PATCH(request: Request) {
       ladiesFirstMessaging: profile.ladiesFirstMessaging,
       photoBlurUntilMatch: profile.photoBlurUntilMatch,
       canUseIncognito: tierFeatures(tier).incognitoMode,
+      canControlPhotoBlur: tierFeatures(tier).photoPrivacyControls,
     });
   } catch (error) {
     return handleApiError(error);

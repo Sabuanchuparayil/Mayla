@@ -1,7 +1,6 @@
 import { DiscoverFeed } from '@/components/discover/discover-feed';
-import { DateRequestInbox } from '@/components/discover/date-request-inbox';
-import { LikesYouInbox } from '@/components/discover/likes-you-inbox';
-import { DailyPicks } from '@/components/discover/daily-picks';
+import { DiscoverSecondaryPanels } from '@/components/discover/discover-secondary-panels';
+import { ProfileCompletenessBanner } from '@/components/profile/completeness-banner';
 
 export default function DiscoverPage() {
   return (
@@ -14,13 +13,19 @@ export default function DiscoverPage() {
           Swipe on verified profiles near you
         </p>
       </div>
-      <DailyPicks />
-      <LikesYouInbox />
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Date Requests</h2>
-        <DateRequestInbox />
-      </div>
+      <ProfileCompletenessBanner />
       <DiscoverFeed />
+      <details className="group rounded-2xl border border-card-border bg-card/50">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="flex items-center justify-between">
+            More for you
+            <span className="text-xs font-normal transition-transform group-open:rotate-180">▼</span>
+          </span>
+        </summary>
+        <div className="border-t border-card-border px-4 pb-4 pt-2">
+          <DiscoverSecondaryPanels />
+        </div>
+      </details>
     </div>
   );
 }

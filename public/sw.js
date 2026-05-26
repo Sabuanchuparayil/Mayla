@@ -1,7 +1,13 @@
-const CACHE = 'mayla-v5';
+const CACHE = 'mayla-v6';
+const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.add(OFFLINE_URL))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -30,7 +36,7 @@ self.addEventListener('fetch', (event) => {
   if (isNavigation) {
     event.respondWith(
       fetch(event.request).catch(() =>
-        caches.match(event.request).then((cached) => cached || Response.error()),
+        caches.match(event.request).then((cached) => cached || caches.match(OFFLINE_URL)),
       ),
     );
     return;
@@ -45,7 +51,9 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || Response.error())),
+      .catch(() =>
+        caches.match(event.request).then((cached) => cached || Response.error()),
+      ),
   );
 });
 

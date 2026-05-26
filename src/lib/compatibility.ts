@@ -1,4 +1,5 @@
 import type { RelationshipGoalValue } from '@/lib/constants/profile-options';
+import type { UserPreferences } from '@/lib/preferences';
 
 export type CompatibilityProfile = {
   userId: string;
@@ -14,11 +15,25 @@ export type CompatibilityProfile = {
   distanceMeters?: number | null;
   personalityPrompts?: { prompt: string; answer: string; audioUrl?: string }[];
   nationalitiesPref?: string[];
+  openToDifferentCultures?: string | null;
+  relocateWillingness?: string | null;
+  lifestyleExpectations?: string | null;
+};
+
+export type CompatibilityBreakdown = {
+  preferenceMatch: number;
+  interestOverlap: number;
+  languageOverlap: number;
+  goalAlignment: number;
+  proximity: number;
+  completeness: number;
+  activityRecency: number;
 };
 
 export type CompatibilityResult = {
   score: number;
   reasons: string[];
+  breakdown: CompatibilityBreakdown;
 };
 
 function jaccard(a: string[], b: string[]): number {
@@ -50,28 +65,79 @@ function profileCompletenessScore(p: CompatibilityProfile): number {
   return Math.min(100, score);
 }
 
+function scorePreferenceMatch(
+  candidate: CompatibilityProfile,
+  prefs: UserPreferences | undefined,
+): { points: number; reason: string | null } {
+  if (!prefs) return { points: 12, reason: null };
+
+  const checks: boolean[] = [];
+
+  if (prefs.genderPref.length > 0 && candidate.gender) {
+    checks.push(prefs.genderPref.includes(candidate.gender));
+  }
+  const age = ageFromBirthDate(candidate.birthDate);
+  if (age != null) {
+    if (prefs.ageMin != null) checks.push(age >= prefs.ageMin);
+    if (prefs.ageMax != null) checks.push(age <= prefs.ageMax);
+  }
+  if (prefs.nationalities.length > 0 && candidate.nationality) {
+    checks.push(prefs.nationalities.includes(candidate.nationality));
+  }
+  if (prefs.languages.length > 0) {
+    const langs = candidate.languages ?? [];
+    checks.push(langs.some((l) => prefs.languages.includes(l)));
+  }
+  if (prefs.relationshipGoals.length > 0 && candidate.relationshipGoal) {
+    checks.push(prefs.relationshipGoals.includes(candidate.relationshipGoal as never));
+  }
+
+  if (checks.length === 0) return { points: 12, reason: null };
+
+  const ratio = checks.filter(Boolean).length / checks.length;
+  return {
+    points: Math.round(ratio * 25),
+    reason: ratio >= 0.8 ? 'Matches your preferences' : null,
+  };
+}
+
+function scoreActivityRecency(lastActive: Date | null | undefined): number {
+  if (!lastActive) return 1;
+  const hours = (Date.now() - lastActive.getTime()) / 3600000;
+  if (hours <= 24) return 5;
+  if (hours <= 24 * 7) return 3;
+  if (hours <= 24 * 30) return 1;
+  return 0;
+}
+
 export function computeCompatibility(
   viewer: CompatibilityProfile,
   candidate: CompatibilityProfile,
+  options: {
+    viewerPrefs?: UserPreferences;
+    candidateLastActive?: Date | null;
+    distanceMeters?: number | null;
+  } = {},
 ): CompatibilityResult {
   const reasons: string[] = [];
-  let score = 0;
+  const breakdown: CompatibilityBreakdown = {
+    preferenceMatch: 0,
+    interestOverlap: 0,
+    languageOverlap: 0,
+    goalAlignment: 0,
+    proximity: 0,
+    completeness: 0,
+    activityRecency: 0,
+  };
 
-  // Relationship goal alignment (15%)
-  if (viewer.relationshipGoal && candidate.relationshipGoal) {
-    if (viewer.relationshipGoal === candidate.relationshipGoal) {
-      score += 15;
-      reasons.push('Same relationship goal');
-    } else {
-      score += 5;
-    }
-  }
+  const pref = scorePreferenceMatch(candidate, options.viewerPrefs);
+  breakdown.preferenceMatch = pref.points;
+  if (pref.reason) reasons.push(pref.reason);
 
-  // Interest + lifestyle overlap (20%)
   const interestOverlap = jaccard(viewer.interests ?? [], candidate.interests ?? []);
   const lifestyleOverlap = jaccard(viewer.lifestyle ?? [], candidate.lifestyle ?? []);
   const combinedOverlap = (interestOverlap + lifestyleOverlap) / 2;
-  score += Math.round(combinedOverlap * 20);
+  breakdown.interestOverlap = Math.round(combinedOverlap * 20);
   const sharedInterests = (viewer.interests ?? []).filter((i) =>
     (candidate.interests ?? []).some((c) => c.toLowerCase() === i.toLowerCase()),
   );
@@ -84,48 +150,52 @@ export function computeCompatibility(
     reasons.push(`Shared lifestyle: ${sharedLifestyle.slice(0, 2).join(', ')}`);
   }
 
-  // Language overlap (15%)
   const sharedLangs = (viewer.languages ?? []).filter((l) =>
     (candidate.languages ?? []).some((c) => c.toLowerCase() === l.toLowerCase()),
   );
   if (sharedLangs.length > 0) {
-    score += Math.min(15, sharedLangs.length * 8);
+    breakdown.languageOverlap = Math.min(15, sharedLangs.length * 8);
     reasons.push(`Both speak ${sharedLangs.slice(0, 2).join(' & ')}`);
   }
 
-  // Nationality proximity (5%) or cross-cultural bonus
-  if (viewer.nationality && candidate.nationality) {
-    if (viewer.nationality === candidate.nationality) {
-      score += 5;
-      reasons.push('Same nationality');
-    } else if (
-      viewer.nationalitiesPref?.includes(candidate.nationality) ||
-      (viewer.nationalitiesPref?.length ?? 0) === 0
-    ) {
-      score += 8;
-      reasons.push('Cross-cultural match');
+  if (viewer.relationshipGoal && candidate.relationshipGoal) {
+    if (viewer.relationshipGoal === candidate.relationshipGoal) {
+      breakdown.goalAlignment = 15;
+      reasons.push('Same relationship goal');
+    } else {
+      breakdown.goalAlignment = 5;
     }
   }
 
-  // Dream dates overlap (10%)
-  const dreamOverlap = jaccard(viewer.dreamDates ?? [], candidate.dreamDates ?? []);
-  if (dreamOverlap > 0) {
-    score += Math.round(dreamOverlap * 10);
-    const shared = (viewer.dreamDates ?? []).filter((d) =>
-      (candidate.dreamDates ?? []).some((c) => c.toLowerCase() === d.toLowerCase()),
-    );
-    if (shared.length > 0) reasons.push(`Dream date: ${shared[0]}`);
+  const distanceMeters = options.distanceMeters ?? candidate.distanceMeters ?? null;
+  if (distanceMeters != null) {
+    breakdown.proximity = Math.round(Math.max(0, 100 - distanceMeters / 1000) * 0.1);
+    if (distanceMeters < 5000) reasons.push(`${Math.round(distanceMeters / 1000)} km away`);
+  } else {
+    breakdown.proximity = 5;
   }
 
-  // Profile completeness (10%)
-  score += Math.round(profileCompletenessScore(candidate) * 0.1);
+  breakdown.completeness = Math.round(profileCompletenessScore(candidate) * 0.1);
+  breakdown.activityRecency = scoreActivityRecency(options.candidateLastActive);
 
-  // Preference match placeholder (25%) — filled by caller if prefs available
-  score = Math.min(100, Math.max(0, score));
+  const score = Math.min(
+    100,
+    Math.max(
+      0,
+      breakdown.preferenceMatch +
+        breakdown.interestOverlap +
+        breakdown.languageOverlap +
+        breakdown.goalAlignment +
+        breakdown.proximity +
+        breakdown.completeness +
+        breakdown.activityRecency,
+    ),
+  );
 
   return {
     score,
     reasons: reasons.slice(0, 3),
+    breakdown,
   };
 }
 

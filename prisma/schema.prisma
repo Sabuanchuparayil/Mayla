@@ -90,6 +90,7 @@ model Profile {
   relocateWillingness String?
   lifestyleExpectations String?
   photoBlurUntilMatch Boolean  @default(false)
+  blurredPhotoIndices Json      @default("[]")
   gentlemanScore     Int       @default(0)
   locale             String    @default("en")
   createdAt          DateTime  @default(now())

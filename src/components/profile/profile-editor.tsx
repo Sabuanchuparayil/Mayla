@@ -10,6 +10,9 @@ import { PromptPicker, type PersonalityPrompt } from '@/components/ui/prompt-pic
 import { CompletenessRing } from '@/components/ui/completeness-ring';
 import { AvailabilityPicker } from '@/components/profile/availability-picker';
 import { PhotoUpload } from '@/components/profile/photo-upload';
+import { ProfilePhotoGallery } from '@/components/profile/profile-photo-gallery';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { apiFetch } from '@/lib/api/client';
 import {
   RELATIONSHIP_GOALS,
@@ -49,6 +52,7 @@ type ProfileData = {
   city: string;
   country: string;
   photos: string[];
+  blurredPhotoIndices: number[];
   dreamDates: string[];
   openToDifferentCultures: string;
   relocateWillingness: string;
@@ -77,6 +81,7 @@ export function ProfileEditor() {
     city: '',
     country: 'AE',
     photos: [],
+    blurredPhotoIndices: [],
     dreamDates: [],
     openToDifferentCultures: '',
     relocateWillingness: '',
@@ -87,6 +92,16 @@ export function ProfileEditor() {
   const [hints, setHints] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [canControlPhotoBlur, setCanControlPhotoBlur] = useState(false);
+  const [tab, setTab] = useState<'photos' | 'about' | 'lifestyle' | 'prompts' | 'preview'>('photos');
+
+  const TABS = [
+    { id: 'photos' as const, label: 'Photos' },
+    { id: 'about' as const, label: 'About' },
+    { id: 'lifestyle' as const, label: 'Lifestyle' },
+    { id: 'prompts' as const, label: 'Prompts' },
+    { id: 'preview' as const, label: 'Preview' },
+  ];
 
   useEffect(() => {
     Promise.all([
@@ -95,6 +110,7 @@ export function ProfileEditor() {
         profile: Record<string, unknown> | null;
         completeness: number;
         hints: string[];
+        canControlPhotoBlur: boolean;
       }>('/api/users/me/profile'),
     ]).then(([userRes, profileRes]) => {
       setLoading(false);
@@ -103,6 +119,7 @@ export function ProfileEditor() {
       }
       if (profileRes.success && profileRes.data.profile) {
         const p = profileRes.data.profile;
+        setCanControlPhotoBlur(profileRes.data.canControlPhotoBlur);
         setCompleteness(profileRes.data.completeness);
         setHints(profileRes.data.hints);
         setForm({
@@ -128,6 +145,7 @@ export function ProfileEditor() {
           city: (p.city as string) ?? '',
           country: (p.country as string) ?? 'AE',
           photos: (p.photos as string[]) ?? [],
+          blurredPhotoIndices: (p.blurredPhotoIndices as number[]) ?? [],
           dreamDates: (p.dreamDates as string[]) ?? [],
           openToDifferentCultures: (p.openToDifferentCultures as string) ?? '',
           relocateWillingness: (p.relocateWillingness as string) ?? '',
@@ -180,8 +198,9 @@ export function ProfileEditor() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
@@ -210,15 +229,68 @@ export function ProfileEditor() {
         </div>
       </Card>
 
-      <Card>
-        <CardHeader title="Photos" description="Your first photo is shown on Discover" />
-        <PhotoUpload photos={form.photos} onChange={(photos) => update('photos', photos)} />
-      </Card>
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-card-border bg-card p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            aria-current={tab === t.id ? 'page' : undefined}
+            className={cn(
+              'shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-all active:scale-95',
+              tab === t.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
+      {tab === 'photos' ? (
+      <Card>
+        <CardHeader title="Photos" description="Your first photo is always visible on Discover" />
+        <PhotoUpload
+          photos={form.photos}
+          blurredPhotoIndices={form.blurredPhotoIndices}
+          canControlBlur={canControlPhotoBlur}
+          onChange={(photos) => update('photos', photos)}
+          onBlurIndicesChange={(blurredPhotoIndices) => update('blurredPhotoIndices', blurredPhotoIndices)}
+        />
+      </Card>
+      ) : null}
+
+      {tab === 'photos' ? (
       <Card>
         <AvailabilityPicker />
       </Card>
+      ) : null}
 
+      {tab === 'preview' ? (
+        <Card className="overflow-hidden p-0">
+          <ProfilePhotoGallery
+            photos={form.photos}
+            displayName={form.displayName || 'You'}
+            blurredPhotoIndices={form.blurredPhotoIndices}
+            isMatched
+            mainClassName="h-72"
+          />
+          <div className="space-y-2 p-6">
+            <h3 className="font-[family-name:var(--font-playfair)] text-xl font-semibold">
+              {form.displayName || 'Your name'}
+            </h3>
+            {form.bio ? <p className="text-sm text-muted-foreground">{form.bio}</p> : null}
+            {form.personalityPrompts[0]?.answer ? (
+              <div className="rounded-xl bg-warm-100/50 p-3 dark:bg-warm-400/5">
+                <p className="text-xs font-medium text-primary">{form.personalityPrompts[0].prompt}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{form.personalityPrompts[0].answer}</p>
+              </div>
+            ) : null}
+            <p className="text-xs text-muted-foreground">This is how others see you on Discover</p>
+          </div>
+        </Card>
+      ) : null}
+
+      {tab !== 'photos' && tab !== 'preview' ? (
       <Card>
         <CardHeader title="Your profile" description="How others see you in Discover" />
 
@@ -234,6 +306,7 @@ export function ProfileEditor() {
         ) : null}
 
         <form onSubmit={save} className="space-y-8">
+          {tab === 'about' ? (
           <section className="space-y-4">
             <h3 className="text-sm font-semibold text-primary">About Me</h3>
             <div>
@@ -249,10 +322,18 @@ export function ProfileEditor() {
               <Input
                 id="bio"
                 value={form.bio}
-                onChange={(e) => update('bio', e.target.value)}
+                onChange={(e) => update('bio', e.target.value.slice(0, 300))}
                 placeholder="A little about yourself..."
+                maxLength={300}
               />
+              <p className="mt-1 text-xs text-muted-foreground">{form.bio.length}/300</p>
             </div>
+          </section>
+          ) : null}
+
+          {tab === 'prompts' ? (
+          <section className="space-y-4">
+            <h3 className="text-sm font-semibold text-primary">Personality</h3>
             <div>
               <Label>Personality prompts</Label>
               <PromptPicker
@@ -261,7 +342,10 @@ export function ProfileEditor() {
               />
             </div>
           </section>
+          ) : null}
 
+          {tab === 'about' ? (
+          <>
           <section className="space-y-4">
             <h3 className="text-sm font-semibold text-primary">Background</h3>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -403,7 +487,10 @@ export function ProfileEditor() {
               />
             </div>
           </section>
+          </>
+          ) : null}
 
+          {tab === 'lifestyle' ? (
           <section className="space-y-4">
             <h3 className="text-sm font-semibold text-primary">Lifestyle</h3>
             <ChipSelect
@@ -461,9 +548,10 @@ export function ProfileEditor() {
               </div>
             </div>
           </section>
+          ) : null}
 
-          <div className="flex items-center gap-3">
-            <Button type="submit">Save profile</Button>
+          <div className="sticky bottom-20 flex items-center gap-3 rounded-xl border border-card-border bg-card/95 p-4 backdrop-blur md:bottom-4">
+            <Button type="submit" className="active:scale-95">Save profile</Button>
             {saved ? (
               <span className="animate-fade-up text-sm font-medium text-emerald-600">
                 Saved successfully
@@ -472,6 +560,7 @@ export function ProfileEditor() {
           </div>
         </form>
       </Card>
+      ) : null}
     </div>
   );
 }

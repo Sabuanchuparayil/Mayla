@@ -15,9 +15,15 @@ export async function reportUser(
   reason: string,
   details?: string,
 ) {
-  return db.userReport.create({
+  const report = await db.userReport.create({
     data: { reporterId, reportedId, reason, details },
   });
+
+  const { recordReportAgainst, scheduleGentlemanScoreRefresh } = await import('@/lib/gentleman-score');
+  await recordReportAgainst(reportedId);
+  scheduleGentlemanScoreRefresh(reportedId);
+
+  return report;
 }
 
 export async function listPendingReports(limit = 50) {
@@ -47,8 +53,9 @@ export async function resolveReport(
   }
 
   if (action === 'WARN' || action === 'BAN') {
-    const { recordReportAgainst } = await import('@/lib/gentleman-score');
+    const { recordReportAgainst, scheduleGentlemanScoreRefresh } = await import('@/lib/gentleman-score');
     await recordReportAgainst(report.reportedId);
+    scheduleGentlemanScoreRefresh(report.reportedId);
     if (action === 'BAN') {
       await db.user.update({
         where: { id: report.reportedId },

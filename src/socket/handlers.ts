@@ -4,7 +4,7 @@ import { connectMongoDB } from '@/lib/mongodb';
 import { userCanAccessMatch, getMatchForUser } from '@/lib/matches';
 import { Message } from '@/models/message.model';
 import { db } from '@/lib/db';
-import { recordMessageSent, recordMessageReply } from '@/lib/gentleman-score';
+import { recordMessageSent, recordMessageReply, scheduleGentlemanScoreRefresh } from '@/lib/gentleman-score';
 import { sendPushToUser } from '@/lib/push';
 
 async function authenticateSocket(socket: Socket): Promise<string | null> {
@@ -47,6 +47,18 @@ export function registerSocketHandlers(io: Server): void {
       socket.leave(`match:${matchId}`);
     });
 
+    socket.on('typing:start', async (matchId: string) => {
+      if (await userCanAccessMatch(matchId, userId)) {
+        socket.to(`match:${matchId}`).emit('typing:update', { matchId, userId, typing: true });
+      }
+    });
+
+    socket.on('typing:stop', async (matchId: string) => {
+      if (await userCanAccessMatch(matchId, userId)) {
+        socket.to(`match:${matchId}`).emit('typing:update', { matchId, userId, typing: false });
+      }
+    });
+
     socket.on('message:send', async (payload: { matchId: string; content: string }) => {
       try {
         if (!(await userCanAccessMatch(payload.matchId, userId))) {
@@ -85,12 +97,14 @@ export function registerSocketHandlers(io: Server): void {
         });
 
         await recordMessageSent(userId, payload.content.length);
+        scheduleGentlemanScoreRefresh(userId);
 
         if (match) {
           const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
           if (priorMessage) {
             const replyDelayMs = Date.now() - new Date(priorMessage.createdAt).getTime();
             await recordMessageReply(priorMessage.senderId, replyDelayMs);
+            scheduleGentlemanScoreRefresh(priorMessage.senderId);
           }
           const senderProfile = await db.profile.findUnique({
             where: { userId },
@@ -110,6 +124,7 @@ export function registerSocketHandlers(io: Server): void {
           content: message.content,
           createdAt: message.createdAt,
         });
+        socket.to(`match:${payload.matchId}`).emit('typing:update', { matchId: payload.matchId, userId, typing: false });
       } catch (error) {
         console.error('[Socket] message:send error:', error);
         socket.emit('error', { message: 'Failed to send message' });

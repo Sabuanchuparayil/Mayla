@@ -4,7 +4,12 @@ import {
 } from '@aws-sdk/client-rekognition';
 import { rekognitionClient } from '@/lib/s3';
 
-const MOCK = process.env.MOCK_VERIFICATION !== 'false';
+function isMockMode(): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.MOCK_VERIFICATION === 'true';
+  }
+  return process.env.MOCK_VERIFICATION !== 'false';
+}
 
 export type VerificationResult = {
   verified: boolean;
@@ -12,16 +17,14 @@ export type VerificationResult = {
   mock: boolean;
 };
 
-/** Face verification — returns mock pass when MOCK_VERIFICATION=true (default in dev). */
-export async function verifySelfie(_sourceImageKey: string, _targetImageKey?: string): Promise<VerificationResult> {
-  if (MOCK) {
+export async function verifySelfie(sourceImageKey: string, targetImageKey?: string): Promise<VerificationResult> {
+  if (isMockMode()) {
     return { verified: true, confidence: 99.9, mock: true };
   }
 
-  // Real Rekognition integration — wire S3 object keys when MOCK_VERIFICATION=false
   const command = new CompareFacesCommand({
-    SourceImage: { S3Object: { Bucket: process.env.AWS_S3_BUCKET ?? '', Name: _sourceImageKey } },
-    TargetImage: { S3Object: { Bucket: process.env.AWS_S3_BUCKET ?? '', Name: _targetImageKey ?? _sourceImageKey } },
+    SourceImage: { S3Object: { Bucket: process.env.AWS_S3_BUCKET ?? '', Name: sourceImageKey } },
+    TargetImage: { S3Object: { Bucket: process.env.AWS_S3_BUCKET ?? '', Name: targetImageKey ?? sourceImageKey } },
     SimilarityThreshold: 90,
   });
 

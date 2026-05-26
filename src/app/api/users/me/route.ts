@@ -113,6 +113,11 @@ export async function PUT(request: Request) {
         lifestyle: body.lifestyle ?? [],
         interests: body.interests ?? [],
         personalityPrompts: body.personalityPrompts ?? [],
+        photos: body.photos ?? [],
+        smoking: body.smoking ?? null,
+        drinking: body.drinking ?? null,
+        exercise: body.exercise ?? null,
+        height: body.height ?? null,
         city: body.city ?? null,
         country: body.country ?? 'AE',
       },
@@ -129,6 +134,11 @@ export async function PUT(request: Request) {
         lifestyle: body.lifestyle ?? [],
         interests: body.interests ?? [],
         personalityPrompts: body.personalityPrompts ?? [],
+        photos: body.photos ?? [],
+        smoking: body.smoking ?? null,
+        drinking: body.drinking ?? null,
+        exercise: body.exercise ?? null,
+        height: body.height ?? null,
         city: body.city ?? null,
         country: body.country ?? 'AE',
       },
@@ -136,8 +146,13 @@ export async function PUT(request: Request) {
 
     await db.userPreference.upsert({
       where: { userId: user.id },
-      create: { userId: user.id },
-      update: {},
+      create: {
+        userId: user.id,
+        genderPref: body.gender === 'MALE' ? ['FEMALE'] : body.gender === 'FEMALE' ? ['MALE'] : [],
+      },
+      update: {
+        genderPref: body.gender === 'MALE' ? ['FEMALE'] : body.gender === 'FEMALE' ? ['MALE'] : [],
+      },
     });
 
     await ensureSubscription(user.id);

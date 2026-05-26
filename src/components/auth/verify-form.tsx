@@ -22,7 +22,7 @@ export function VerifyForm() {
   async function sendCode() {
     setError('');
     setLoading(true);
-    const result = await apiFetch<{ expiresIn: number; debugCode?: string }>('/api/auth/otp/send', {
+    const result = await apiFetch<{ expiresIn: number }>('/api/auth/otp/send', {
       method: 'POST',
       body: JSON.stringify({ phone }),
     });
@@ -32,9 +32,6 @@ export function VerifyForm() {
       return;
     }
     setSent(true);
-    if (result.data.debugCode) {
-      setCode(result.data.debugCode);
-    }
   }
 
   async function verifyCode(e: React.FormEvent) {
@@ -61,7 +58,7 @@ export function VerifyForm() {
     <Card className="w-full max-w-md">
       <CardHeader
         title="Verify your phone"
-        description="Enter the 6-digit code sent to your number. Use 123456 in development."
+        description="Enter the 6-digit code sent to your number."
       />
       <div className="space-y-4">
         {error ? (

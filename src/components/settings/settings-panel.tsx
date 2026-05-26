@@ -13,6 +13,7 @@ import {
   PushNotificationsPanel,
   LocaleSelector,
 } from '@/components/settings/privacy-panel';
+import { SafetyCenter } from '@/components/settings/safety-center';
 import { apiFetch } from '@/lib/api/client';
 import { useLocale } from '@/hooks/use-locale';
 
@@ -196,6 +197,8 @@ export function SettingsPanel() {
           </Button>
         </div>
       </Card>
+
+      <SafetyCenter />
 
       {/* Privacy */}
       <Card>

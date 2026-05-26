@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ChipSelect, SingleSelectChips } from '@/components/ui/chip-select';
 import { PromptPicker, type PersonalityPrompt } from '@/components/ui/prompt-picker';
+import { PhotoUpload } from '@/components/profile/photo-upload';
 import { apiFetch } from '@/lib/api/client';
 import {
   RELATIONSHIP_GOALS,
@@ -17,6 +18,9 @@ import {
   EDUCATION_LEVELS,
   INDUSTRIES,
   LIFESTYLE_TAGS,
+  SMOKING_OPTIONS,
+  DRINKING_OPTIONS,
+  EXERCISE_OPTIONS,
 } from '@/lib/constants/profile-options';
 
 const STEPS = [
@@ -25,6 +29,7 @@ const STEPS = [
   'Work',
   'Your Goal',
   'Lifestyle',
+  'Photos',
   'Personality',
 ] as const;
 
@@ -40,6 +45,11 @@ type FormData = {
   relationshipGoal: string;
   lifestyle: string[];
   interests: string[];
+  smoking: string;
+  drinking: string;
+  exercise: string;
+  height: string;
+  photos: string[];
   personalityPrompts: PersonalityPrompt[];
   city: string;
 };
@@ -62,6 +72,11 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
     relationshipGoal: '',
     lifestyle: [],
     interests: [],
+    smoking: '',
+    drinking: '',
+    exercise: '',
+    height: '',
+    photos: [],
     personalityPrompts: [],
     city: '',
   });
@@ -77,13 +92,12 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
       case 1:
         return form.nationality.length > 0 && form.languages.length > 0;
       case 2:
+      case 4:
+      case 5:
+      case 6:
         return true;
       case 3:
         return form.relationshipGoal.length > 0;
-      case 4:
-        return true;
-      case 5:
-        return true;
       default:
         return false;
     }
@@ -109,6 +123,11 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
         relationshipGoal: form.relationshipGoal,
         lifestyle: form.lifestyle,
         interests: form.interests,
+        smoking: form.smoking || undefined,
+        drinking: form.drinking || undefined,
+        exercise: form.exercise || undefined,
+        height: form.height ? Number(form.height) : undefined,
+        photos: form.photos,
         personalityPrompts: form.personalityPrompts.filter((p) => p.answer.trim()),
         city: form.city || undefined,
         country: form.nationality.length === 2 && form.nationality !== 'OTHER' ? form.nationality : 'AE',
@@ -125,6 +144,16 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
     router.push('/dashboard');
     router.refresh();
   }
+
+  const continueLabels = [
+    'Continue',
+    'Continue',
+    'Continue',
+    'Set my goal',
+    'Continue',
+    'Add photos',
+    'Almost done',
+  ] as const;
 
   return (
     <Card className="w-full max-w-lg">
@@ -274,6 +303,44 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
                 max={8}
               />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Smoking</Label>
+                <SingleSelectChips
+                  options={SMOKING_OPTIONS.map((o) => ({ value: o, label: o }))}
+                  value={form.smoking || null}
+                  onChange={(v) => update('smoking', v)}
+                />
+              </div>
+              <div>
+                <Label>Drinking</Label>
+                <SingleSelectChips
+                  options={DRINKING_OPTIONS.map((o) => ({ value: o, label: o }))}
+                  value={form.drinking || null}
+                  onChange={(v) => update('drinking', v)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>Exercise</Label>
+                <SingleSelectChips
+                  options={EXERCISE_OPTIONS.map((o) => ({ value: o, label: o }))}
+                  value={form.exercise || null}
+                  onChange={(v) => update('exercise', v)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="height">Height (cm, optional)</Label>
+                <Input
+                  id="height"
+                  type="number"
+                  placeholder="170"
+                  value={form.height}
+                  onChange={(e) => update('height', e.target.value)}
+                />
+              </div>
+            </div>
             <div>
               <Label htmlFor="interests">Interests (comma-separated, optional)</Label>
               <Input
@@ -295,6 +362,26 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
         ) : null}
 
         {step === 5 ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Add up to 6 photos. Your first photo is your main Discover image.
+            </p>
+            <ul className="list-inside list-disc text-xs text-muted-foreground">
+              <li>Use a clear, recent photo of your face</li>
+              <li>Avoid group shots or heavy filters for your main photo</li>
+              <li>Add variety — hobbies, travel, or full-body shots work well</li>
+            </ul>
+            <PhotoUpload
+              photos={form.photos}
+              blurredPhotoIndices={[]}
+              canControlBlur={false}
+              onChange={(photos) => update('photos', photos)}
+              onBlurIndicesChange={() => undefined}
+            />
+          </>
+        ) : null}
+
+        {step === 6 ? (
           <>
             <p className="text-sm text-muted-foreground">
               Answer up to 3 prompts — these help you stand out (optional).
@@ -320,10 +407,10 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
             disabled={!canProceed()}
             onClick={() => setStep((s) => s + 1)}
           >
-            Continue
+            {continueLabels[step]}
           </Button>
         ) : (
-          <Button className="flex-1" loading={loading} onClick={finish}>
+          <Button className="flex-1" loading={loading} onClick={() => void finish()}>
             Complete profile
           </Button>
         )}

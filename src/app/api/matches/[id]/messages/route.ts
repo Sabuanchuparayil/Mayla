@@ -5,6 +5,7 @@ import { apiSuccess } from '@/lib/api/response';
 import { requireCurrentUser } from '@/lib/auth/guard';
 import { userCanAccessMatch } from '@/lib/matches';
 import { listMatchMessages, markMessagesRead } from '@/lib/messages';
+import { emitToMatch } from '@/lib/socket-io';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,6 +38,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     await markMessagesRead(matchId, user.id);
+    emitToMatch(matchId, 'messages:read', { matchId, readerId: user.id });
     return apiSuccess({ read: true });
   } catch (error) {
     return handleApiError(error);

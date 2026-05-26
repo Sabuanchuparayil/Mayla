@@ -162,10 +162,12 @@ export function tierFeatures(tier: Tier) {
     swipeLimit: SWIPE_LIMITS[tier],
     goalFilters: tier === 'FREE' ? 0 : tier === 'GOLD' ? 1 : 7,
     priorityPlacement: tier === 'PLATINUM',
+    lookingForYou: tier === 'PLATINUM',
     canSeeAvailability: tier !== 'FREE',
     dateRequestsPerWeek: tier === 'FREE' ? 0 : tier === 'GOLD' ? 3 : null,
     incognitoMode: tier !== 'FREE',
     canSendGifts: tier !== 'FREE',
     premiumDreamDates: tier === 'PLATINUM',
+    photoPrivacyControls: tier !== 'FREE',
   };
 }

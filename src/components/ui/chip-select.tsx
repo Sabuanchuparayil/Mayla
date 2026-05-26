@@ -32,6 +32,7 @@ export function ChipSelect({ options, value, onChange, max, className }: ChipSel
           <button
             key={opt.value}
             type="button"
+            aria-pressed={selected}
             onClick={() => toggle(opt.value)}
             className={cn(
               'rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200',
@@ -64,6 +65,7 @@ export function SingleSelectChips({ options, value, onChange, className }: Singl
           <button
             key={opt.value}
             type="button"
+            aria-pressed={selected}
             onClick={() => onChange(opt.value)}
             className={cn(
               'flex items-start gap-3 rounded-xl border p-3 text-left transition-all duration-200',

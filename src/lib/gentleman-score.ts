@@ -21,7 +21,9 @@ export async function recordMessageReply(userId: string, replyDelayMs: number) {
 
 export async function recordReportAgainst(userId: string) {
   const redis = await ensureRedisConnected();
-  await redis.hincrby(`${PREFIX}${userId}`, 'reports', 1);
+  const key = `${PREFIX}${userId}`;
+  await redis.hincrby(key, 'reports', 1);
+  await redis.expire(key, 90 * 86400);
 }
 
 export async function computeGentlemanScore(userId: string): Promise<number> {
@@ -46,6 +48,23 @@ export async function refreshGentlemanScore(userId: string): Promise<number> {
   const score = await computeGentlemanScore(userId);
   await db.profile.update({ where: { userId }, data: { gentlemanScore: score } });
   return score;
+}
+
+const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Debounced persist of Redis metrics to Profile.gentlemanScore. */
+export function scheduleGentlemanScoreRefresh(userId: string): void {
+  const existing = refreshTimers.get(userId);
+  if (existing) clearTimeout(existing);
+  refreshTimers.set(
+    userId,
+    setTimeout(() => {
+      refreshTimers.delete(userId);
+      void refreshGentlemanScore(userId).catch((err) => {
+        console.error('[GentlemanScore] refresh failed:', err);
+      });
+    }, 2000),
+  );
 }
 
 export function gentlemanStars(score: number): number {

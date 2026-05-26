@@ -44,9 +44,5 @@ export async function sendOtp(phone: string): Promise<{ code: string; expiresIn:
   const code = generateOtp();
   await storeOtp(normalized, code);
 
-  if (process.env.NODE_ENV === 'development') {
-    console.info(`[OTP] ${normalized} → ${code}`);
-  }
-
   return { code, expiresIn: OTP_TTL_SECONDS };
 }

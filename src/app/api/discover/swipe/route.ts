@@ -4,7 +4,7 @@ import { handleApiError, AppError, ErrorCodes } from '@/lib/api/errors';
 import { apiSuccess } from '@/lib/api/response';
 import { parseBody } from '@/lib/api/validate';
 import { requireCurrentUser } from '@/lib/auth/guard';
-import { recordSwipe } from '@/lib/discover';
+import { recordSwipe, undoLastSwipe } from '@/lib/discover';
 import { emitToUser } from '@/lib/socket-io';
 import { sendPushToUser } from '@/lib/push';
 import { db } from '@/lib/db';
@@ -55,6 +55,21 @@ export async function POST(request: Request) {
     }
 
     return apiSuccess(result);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+const undoSchema = z.object({
+  targetUserId: z.string().min(1),
+});
+
+export async function DELETE(request: Request) {
+  try {
+    const user = await requireCurrentUser(request);
+    const body = parseBody(undoSchema, await request.json());
+    await undoLastSwipe(user.id, body.targetUserId);
+    return apiSuccess({ undone: true });
   } catch (error) {
     return handleApiError(error);
   }

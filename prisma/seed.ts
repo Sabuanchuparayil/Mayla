@@ -5,15 +5,40 @@ import { PrismaPg } from '@prisma/adapter-pg';
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
 const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
 
-async function syncLocation(profileId: string, lat: number, lng: number) {
-  await prisma.$executeRaw`
-    UPDATE profiles
-    SET location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
-        latitude = ${lat},
-        longitude = ${lng},
-        "updatedAt" = NOW()
-    WHERE id = ${profileId}
-  `;
+async function ensurePostgis(): Promise<boolean> {
+  try {
+    await prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS postgis');
+    const rows = await prisma.$queryRaw<{ exists: boolean }[]>`
+      SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'postgis') AS exists
+    `;
+    return rows[0]?.exists ?? false;
+  } catch {
+    return false;
+  }
+}
+
+async function syncLocation(
+  profileId: string,
+  lat: number,
+  lng: number,
+  hasPostgis: boolean,
+) {
+  if (hasPostgis) {
+    await prisma.$executeRaw`
+      UPDATE profiles
+      SET location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+          latitude = ${lat},
+          longitude = ${lng},
+          "updatedAt" = NOW()
+      WHERE id = ${profileId}
+    `;
+    return;
+  }
+
+  await prisma.profile.update({
+    where: { id: profileId },
+    data: { latitude: lat, longitude: lng },
+  });
 }
 
 type DemoUser = {
@@ -223,7 +248,22 @@ const DEFAULT_ENRICHMENT = {
   lifestyle: ['Social Butterfly'],
   industry: 'Other',
   education: "Bachelor's",
+  jobTitle: 'Professional',
+  smoking: 'Never',
+  drinking: 'Socially',
+  exercise: 'Sometimes',
+  height: 170,
   personalityPrompts: [] as { prompt: string; answer: string }[],
+};
+
+const SEED_LIFESTYLE: Record<string, { jobTitle: string; smoking: string; drinking: string; exercise: string; height: number }> = {
+  'sara@demo.mayla': { jobTitle: 'Interior Designer', smoking: 'Never', drinking: 'Socially', exercise: 'Often', height: 165 },
+  'omar@demo.mayla': { jobTitle: 'Software Engineer', smoking: 'Never', drinking: 'Socially', exercise: 'Daily', height: 178 },
+  'ahmed@demo.mayla': { jobTitle: 'Executive Chef', smoking: 'Socially', drinking: 'Regularly', exercise: 'Sometimes', height: 182 },
+  'fatima@demo.mayla': { jobTitle: 'Pharmacist', smoking: 'Never', drinking: 'Never', exercise: 'Often', height: 162 },
+  'nora@demo.mayla': { jobTitle: 'Marketing Lead', smoking: 'Never', drinking: 'Socially', exercise: 'Daily', height: 168 },
+  'faisal@demo.mayla': { jobTitle: 'Architect', smoking: 'Never', drinking: 'Never', exercise: 'Often', height: 175 },
+  'dana@demo.mayla': { jobTitle: 'Fashion Buyer', smoking: 'Never', drinking: 'Socially', exercise: 'Daily', height: 170 },
 };
 
 const COUNTRY_FROM_PHONE: Record<string, string> = {
@@ -239,6 +279,12 @@ function countryFromPhone(phone: string): string {
 
 async function main() {
   const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD ?? 'admin123!', 12);
+  const hasPostgis = await ensurePostgis();
+  if (!hasPostgis) {
+    console.warn(
+      'PostGIS extension not available — seeding latitude/longitude only. Use postgis/postgis Docker for full geo features.',
+    );
+  }
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@mayla.app' },
@@ -270,7 +316,7 @@ async function main() {
       interests: ['admin'],
     },
   });
-  await syncLocation(adminProfile.id, 25.2048, 55.2708);
+  await syncLocation(adminProfile.id, 25.2048, 55.2708, hasPostgis);
 
   await prisma.subscription.upsert({
     where: { userId: admin.id },
@@ -298,6 +344,13 @@ async function main() {
     });
 
     const enrichment = PROFILE_ENRICHMENTS[demo.email] ?? DEFAULT_ENRICHMENT;
+    const lifestyle = SEED_LIFESTYLE[demo.email] ?? {
+      jobTitle: enrichment.industry === 'Student' ? 'Student' : `${enrichment.industry} Professional`,
+      smoking: DEFAULT_ENRICHMENT.smoking,
+      drinking: DEFAULT_ENRICHMENT.drinking,
+      exercise: DEFAULT_ENRICHMENT.exercise,
+      height: DEFAULT_ENRICHMENT.height,
+    };
 
     const profile = await prisma.profile.upsert({
       where: { userId: user.id },
@@ -313,6 +366,11 @@ async function main() {
         lifestyle: enrichment.lifestyle,
         industry: enrichment.industry,
         education: enrichment.education,
+        jobTitle: lifestyle.jobTitle,
+        smoking: lifestyle.smoking,
+        drinking: lifestyle.drinking,
+        exercise: lifestyle.exercise,
+        height: lifestyle.height,
         relationshipGoal: enrichment.relationshipGoal,
         personalityPrompts: enrichment.personalityPrompts,
       },
@@ -330,16 +388,32 @@ async function main() {
         lifestyle: enrichment.lifestyle,
         industry: enrichment.industry,
         education: enrichment.education,
+        jobTitle: lifestyle.jobTitle,
+        smoking: lifestyle.smoking,
+        drinking: lifestyle.drinking,
+        exercise: lifestyle.exercise,
+        height: lifestyle.height,
         relationshipGoal: enrichment.relationshipGoal,
         personalityPrompts: enrichment.personalityPrompts,
       },
     });
-    await syncLocation(profile.id, demo.lat, demo.lng);
+    await syncLocation(profile.id, demo.lat, demo.lng, hasPostgis);
 
     await prisma.userPreference.upsert({
       where: { userId: user.id },
-      create: { userId: user.id },
-      update: {},
+      create: {
+        userId: user.id,
+        genderPref: demo.gender === 'MALE' ? ['FEMALE'] : ['MALE'],
+        ageMin: 22,
+        ageMax: 42,
+        maxDistanceKm: 100,
+        relationshipGoals: demo.tier !== 'FREE' ? [enrichment.relationshipGoal] : [],
+        languages: enrichment.languages.slice(0, 1),
+      },
+      update: {
+        genderPref: demo.gender === 'MALE' ? ['FEMALE'] : ['MALE'],
+        relationshipGoals: demo.tier !== 'FREE' ? [enrichment.relationshipGoal] : [],
+      },
     });
 
     await prisma.subscription.upsert({

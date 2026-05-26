@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,20 +15,15 @@ type BlockReportModalProps = {
   onBlocked?: () => void;
 };
 
-export function BlockReportModal({
-  userId,
-  displayName,
-  open,
-  onClose,
-  onBlocked,
-}: BlockReportModalProps) {
+const BlockReportModalContent = forwardRef<
+  HTMLDivElement,
+  Omit<BlockReportModalProps, 'open'>
+>(function BlockReportModalContent({ userId, displayName, onClose, onBlocked }, ref) {
   const [mode, setMode] = useState<'menu' | 'report'>('menu');
   const [reason, setReason] = useState<string>('HARASSMENT');
   const [details, setDetails] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-
-  if (!open) return null;
 
   async function handleBlock() {
     setLoading(true);
@@ -65,9 +60,22 @@ export function BlockReportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl animate-scale-in">
+      <button
+        type="button"
+        className="absolute inset-0"
+        aria-label="Close dialog"
+        onClick={onClose}
+      />
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="block-report-title"
+        tabIndex={-1}
+        className="relative w-full max-w-md rounded-2xl bg-card p-6 shadow-xl animate-scale-in outline-none"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-[family-name:var(--font-playfair)] text-lg font-semibold">
+          <h3 id="block-report-title" className="font-[family-name:var(--font-playfair)] text-lg font-semibold">
             {mode === 'menu' ? displayName : 'Report user'}
           </h3>
           <button
@@ -76,7 +84,8 @@ export function BlockReportModal({
               setMode('menu');
               onClose();
             }}
-            className="text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+            className="rounded-lg p-1 text-muted-foreground hover:text-foreground"
           >
             ✕
           </button>
@@ -146,5 +155,37 @@ export function BlockReportModal({
         )}
       </div>
     </div>
+  );
+});
+
+export function BlockReportModal({
+  userId,
+  displayName,
+  open,
+  onClose,
+  onBlocked,
+}: BlockReportModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    dialogRef.current?.focus();
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <BlockReportModalContent
+      ref={dialogRef}
+      userId={userId}
+      displayName={displayName}
+      onClose={onClose}
+      onBlocked={onBlocked}
+    />
   );
 }

@@ -9,6 +9,7 @@ import {
   ageFromBirthDate,
   type CompatibilityProfile,
 } from '@/lib/compatibility';
+import { getCachedCompatibility } from '@/lib/compatibility-cache';
 import {
   relationshipGoalLabel,
   relationshipGoalIcon,
@@ -18,6 +19,7 @@ import { clearExpiredAvailability, isAvailabilityActive, availabilityLabel } fro
 import { computeProfileCompleteness } from '@/lib/profile/completeness';
 import { getUsersHiddenByContacts, getBlockedContactUserIds } from '@/lib/contacts';
 import { gentlemanStars } from '@/lib/gentleman-score';
+import { resolveBlurredPhotoIndices } from '@/lib/photo-privacy';
 
 export type DiscoverProfile = {
   userId: string;
@@ -44,7 +46,8 @@ export type DiscoverProfile = {
   isAvailable: boolean;
   gentlemanStars: number;
   dreamDates: string[];
-  photosBlurred: boolean;
+  blurredPhotoIndices: number[];
+  scoreBreakdown?: import('@/lib/compatibility').CompatibilityBreakdown;
 };
 
 function parseJsonArray(value: unknown): string[] {
@@ -184,17 +187,30 @@ export async function getDiscoverFeed(
   if (nearbyIds.length > 0) {
     profiles = await db.profile.findMany({
       where: { ...baseWhere, userId: { in: nearbyIds } },
-      include: { user: { select: { verified: true } } },
+      include: { user: { select: { verified: true, lastLoginAt: true } } },
       take: (options.limit ?? 20) * 3,
     });
   } else {
     profiles = await db.profile.findMany({
       where: baseWhere,
-      include: { user: { select: { verified: true } } },
+      include: { user: { select: { verified: true, lastLoginAt: true } } },
       take: (options.limit ?? 20) * 3,
       orderBy: { updatedAt: 'desc' },
     });
   }
+
+  const platinumUserIds = new Set(
+    (
+      await db.subscription.findMany({
+        where: {
+          userId: { in: profiles.map((p) => p.userId) },
+          tier: 'PLATINUM',
+          status: 'ACTIVE',
+        },
+        select: { userId: true },
+      })
+    ).map((s) => s.userId),
+  );
 
   const distanceMap = new Map(nearby.map((p) => [p.userId, p.distanceMeters]));
 
@@ -225,10 +241,12 @@ export async function getDiscoverFeed(
     relationshipGoal: viewerProfile?.relationshipGoal,
     personalityPrompts: parsePrompts(viewerProfile?.personalityPrompts),
     nationalitiesPref: prefs.nationalities,
+    openToDifferentCultures: viewerProfile?.openToDifferentCultures,
+    relocateWillingness: viewerProfile?.relocateWillingness,
+    lifestyleExpectations: viewerProfile?.lifestyleExpectations,
   };
 
-  const feed: DiscoverProfile[] = profiles
-    .filter((p) => {
+  const filteredProfiles = profiles.filter((p) => {
       const dist = distanceMap.get(p.userId) ?? null;
       if (!passesPreferenceFilters(p, prefs, dist)) return false;
 
@@ -252,8 +270,11 @@ export async function getDiscoverFeed(
       }
 
       return true;
-    })
-    .map((p) => {
+    });
+
+  const feed: DiscoverProfile[] = (
+    await Promise.all(
+      filteredProfiles.map(async (p) => {
       const distanceMeters = distanceMap.get(p.userId) ?? null;
       const candidateCompat: CompatibilityProfile = {
         userId: p.userId,
@@ -268,9 +289,18 @@ export async function getDiscoverFeed(
         city: p.city,
         distanceMeters,
         personalityPrompts: parsePrompts(p.personalityPrompts),
+        openToDifferentCultures: p.openToDifferentCultures,
+        relocateWillingness: p.relocateWillingness,
+        lifestyleExpectations: p.lifestyleExpectations,
       };
 
-      const { score, reasons } = computeCompatibility(viewerCompat, candidateCompat);
+      const { score, reasons, breakdown } = await getCachedCompatibility(userId, p.userId, () =>
+        computeCompatibility(viewerCompat, candidateCompat, {
+          viewerPrefs: prefs,
+          candidateLastActive: p.user.lastLoginAt,
+          distanceMeters,
+        }),
+      );
 
       const goalMatch =
         !!viewerProfile?.relationshipGoal &&
@@ -282,7 +312,14 @@ export async function getDiscoverFeed(
 
       const proximityScore =
         distanceMeters != null ? Math.max(0, 100 - distanceMeters / 1000) : 50;
-      const blendedScore = Math.round(0.6 * score + 0.4 * proximityScore);
+      let blendedScore = Math.round(0.6 * score + 0.4 * proximityScore);
+      if (
+        features.priorityPlacement &&
+        goalMatch &&
+        platinumUserIds.has(p.userId)
+      ) {
+        blendedScore += 12;
+      }
 
       const available = isAvailabilityActive(p.availableExpiry);
 
@@ -306,14 +343,21 @@ export async function getDiscoverFeed(
         age: ageFromBirthDate(p.birthDate),
         compatibilityScore: blendedScore,
         matchReasons: reasons.slice(0, 3),
+        scoreBreakdown: breakdown,
         goalMatch,
         availabilityLabel: available ? availabilityLabel(p.availableDay, p.availableTime) : null,
         isAvailable: available,
         gentlemanStars: p.gender === 'MALE' ? gentlemanStars(p.gentlemanScore) : 0,
         dreamDates: parseJsonArray(p.dreamDates).slice(0, 3),
-        photosBlurred: p.photoBlurUntilMatch,
+        blurredPhotoIndices: resolveBlurredPhotoIndices(
+          parseJsonArray(p.photos).length,
+          p.blurredPhotoIndices,
+          p.photoBlurUntilMatch,
+        ),
       };
-    })
+    }),
+    )
+  )
     .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
     .slice(0, options.limit ?? 20);
 
@@ -342,6 +386,13 @@ async function incrementSwipeCount(userId: string): Promise<number> {
   return count;
 }
 
+async function decrementSwipeCount(userId: string): Promise<void> {
+  const redis = await ensureRedisConnected();
+  const key = `swipes:${userId}:${new Date().toISOString().slice(0, 10)}`;
+  const count = await redis.decr(key);
+  if (count < 0) await redis.set(key, '0', 'EX', 86400);
+}
+
 function orderedPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
@@ -350,7 +401,13 @@ export async function recordSwipe(
   fromUserId: string,
   toUserId: string,
   action: 'LIKE' | 'PASS',
-): Promise<{ matched: boolean; matchId?: string; compatibilityScore?: number; matchReasons?: string[] }> {
+): Promise<{
+  matched: boolean;
+  matchId?: string;
+  compatibilityScore?: number;
+  matchReasons?: string[];
+  scoreBreakdown?: import('@/lib/compatibility').CompatibilityBreakdown;
+}> {
   if (fromUserId === toUserId) {
     throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Cannot swipe on yourself', 422);
   }
@@ -410,9 +467,12 @@ export async function recordSwipe(
     update: { status: 'ACCEPTED' },
   });
 
-  const [viewerProfile, targetProfile] = await Promise.all([
+  const prefs = await getUserPreferences(fromUserId);
+
+  const [viewerProfile, targetProfile, targetUser] = await Promise.all([
     db.profile.findUnique({ where: { userId: fromUserId } }),
     db.profile.findUnique({ where: { userId: toUserId } }),
+    db.user.findUnique({ where: { id: toUserId }, select: { lastLoginAt: true } }),
   ]);
 
   const viewerCompat: CompatibilityProfile = {
@@ -424,6 +484,9 @@ export async function recordSwipe(
     lifestyle: parseJsonArray(viewerProfile?.lifestyle),
     relationshipGoal: viewerProfile?.relationshipGoal,
     personalityPrompts: parsePrompts(viewerProfile?.personalityPrompts),
+    openToDifferentCultures: viewerProfile?.openToDifferentCultures,
+    relocateWillingness: viewerProfile?.relocateWillingness,
+    lifestyleExpectations: viewerProfile?.lifestyleExpectations,
   };
 
   const targetCompat: CompatibilityProfile = {
@@ -435,21 +498,57 @@ export async function recordSwipe(
     lifestyle: parseJsonArray(targetProfile?.lifestyle),
     relationshipGoal: targetProfile?.relationshipGoal,
     personalityPrompts: parsePrompts(targetProfile?.personalityPrompts),
+    openToDifferentCultures: targetProfile?.openToDifferentCultures,
+    relocateWillingness: targetProfile?.relocateWillingness,
+    lifestyleExpectations: targetProfile?.lifestyleExpectations,
   };
 
-  const { score, reasons } = computeCompatibility(viewerCompat, targetCompat);
+  const { score, reasons, breakdown } = computeCompatibility(viewerCompat, targetCompat, {
+    viewerPrefs: prefs,
+    candidateLastActive: targetUser?.lastLoginAt,
+  });
 
   return {
     matched: true,
     matchId: match.id,
     compatibilityScore: score,
     matchReasons: reasons,
+    scoreBreakdown: breakdown,
   };
 }
 
 export async function getDailyPicks(userId: string, limit = 10): Promise<DiscoverProfile[]> {
   const feed = await getDiscoverFeed(userId, { limit: limit * 2 });
   return feed.profiles.slice(0, limit);
+}
+
+export async function undoLastSwipe(fromUserId: string, toUserId: string): Promise<void> {
+  const swipe = await db.swipe.findUnique({
+    where: { fromUserId_toUserId: { fromUserId, toUserId } },
+  });
+  if (!swipe) {
+    throw new AppError(ErrorCodes.NOT_FOUND, 'No swipe to undo', 404);
+  }
+
+  const ageMs = Date.now() - swipe.createdAt.getTime();
+  if (ageMs > 60_000) {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Undo window expired', 400);
+  }
+
+  const [userAId, userBId] = orderedPair(fromUserId, toUserId);
+  const match = await db.match.findUnique({
+    where: { userAId_userBId: { userAId, userBId } },
+  });
+  if (match?.status === 'ACCEPTED') {
+    throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Cannot undo — you already matched', 400);
+  }
+
+  await db.swipe.delete({ where: { id: swipe.id } });
+  await decrementSwipeCount(fromUserId);
+
+  if (match?.status === 'PENDING') {
+    await db.match.delete({ where: { id: match.id } });
+  }
 }
 
 export { nationalityLabel };

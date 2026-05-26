@@ -21,7 +21,6 @@ export async function POST(request: Request) {
 
     return apiSuccess({
       expiresIn: result.expiresIn,
-      ...(process.env.NODE_ENV === 'development' ? { debugCode: result.code } : {}),
     });
   } catch (error) {
     return handleApiError(error);

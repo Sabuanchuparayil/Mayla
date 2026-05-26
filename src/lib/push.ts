@@ -18,7 +18,13 @@ function configureVapid(): boolean {
 }
 
 export function isPushMockMode(): boolean {
-  return !configureVapid();
+  if (!configureVapid()) {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[push] VAPID keys not configured — push notifications disabled in production');
+    }
+    return true;
+  }
+  return false;
 }
 
 export function getVapidPublicKey(): string | undefined {

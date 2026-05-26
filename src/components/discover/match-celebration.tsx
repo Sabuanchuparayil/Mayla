@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import type { CompatibilityBreakdown } from '@/lib/compatibility';
 
 type Profile = {
   displayName: string;
@@ -12,13 +13,25 @@ type MatchCelebrationProps = {
   profile: Profile;
   compatibilityScore: number;
   matchReasons: string[];
+  scoreBreakdown?: CompatibilityBreakdown;
   onDismiss: () => void;
 };
+
+const BREAKDOWN_LABELS: { key: keyof CompatibilityBreakdown; label: string; max: number }[] = [
+  { key: 'preferenceMatch', label: 'Preferences', max: 25 },
+  { key: 'interestOverlap', label: 'Interests', max: 20 },
+  { key: 'languageOverlap', label: 'Languages', max: 15 },
+  { key: 'goalAlignment', label: 'Relationship goal', max: 15 },
+  { key: 'proximity', label: 'Proximity', max: 10 },
+  { key: 'completeness', label: 'Profile quality', max: 10 },
+  { key: 'activityRecency', label: 'Activity', max: 5 },
+];
 
 export function MatchCelebration({
   profile,
   compatibilityScore,
   matchReasons,
+  scoreBreakdown,
   onDismiss,
 }: MatchCelebrationProps) {
   return (
@@ -36,6 +49,25 @@ export function MatchCelebration({
         <p className="mt-1 text-sm text-muted-foreground">
           {profile.relationshipGoalIcon} Both on Mayla for {profile.relationshipGoalLabel}
         </p>
+      ) : null}
+      {scoreBreakdown ? (
+        <div className="mt-4 space-y-2 text-left">
+          <p className="text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Compatibility breakdown
+          </p>
+          {BREAKDOWN_LABELS.map(({ key, label, max }) => (
+            <div key={key} className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-xs text-muted-foreground">{label}</span>
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-warm-200/60 dark:bg-warm-400/10">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${Math.min(100, (scoreBreakdown[key] / max) * 100)}%` }}
+                />
+              </div>
+              <span className="w-6 text-right text-xs font-medium">{scoreBreakdown[key]}</span>
+            </div>
+          ))}
+        </div>
       ) : null}
       {matchReasons.length > 0 ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">

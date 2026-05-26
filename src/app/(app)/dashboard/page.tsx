@@ -1,6 +1,8 @@
 import { getServerUser } from '@/lib/auth/server';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ProfileCompletenessBanner } from '@/components/profile/completeness-banner';
+import { GentlemanScoreCard } from '@/components/profile/gentleman-score-card';
 
 export default async function DashboardPage() {
   const user = await getServerUser();
@@ -16,6 +18,10 @@ export default async function DashboardPage() {
           Your journey continues. Discover, connect, and build something real.
         </p>
       </div>
+
+      <ProfileCompletenessBanner />
+
+      <GentlemanScoreCard />
 
       {/* Verification prompt */}
       {!user?.verified ? (

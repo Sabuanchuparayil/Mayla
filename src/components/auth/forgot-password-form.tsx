@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -21,7 +21,7 @@ export function ForgotPasswordForm() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const result = await apiFetch<{ debugCode?: string }>('/api/auth/forgot-password', {
+    const result = await apiFetch<{ message: string }>('/api/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     });
@@ -30,7 +30,6 @@ export function ForgotPasswordForm() {
       setError(result.error.message);
       return;
     }
-    if (result.data.debugCode) setToken(result.data.debugCode);
     setStep('reset');
   }
 
@@ -55,7 +54,7 @@ export function ForgotPasswordForm() {
     <Card className="w-full max-w-md">
       <CardHeader
         title="Reset password"
-        description={step === 'email' ? 'We will send a reset code (mock: 654321 in dev).' : 'Enter the code and new password.'}
+        description={step === 'email' ? 'We will send a reset code to your email.' : 'Enter the code and new password.'}
       />
       {step === 'email' ? (
         <form onSubmit={sendCode} className="space-y-4">

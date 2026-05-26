@@ -48,6 +48,7 @@ export const profileUpdateSchema = z.object({
   relocateWillingness: z.string().max(50).nullable().optional(),
   lifestyleExpectations: z.string().max(50).nullable().optional(),
   photoBlurUntilMatch: z.boolean().optional(),
+  blurredPhotoIndices: z.array(z.number().int().min(0).max(5)).max(6).optional(),
   locale: z.enum(['en', 'tl', 'ru', 'es', 'ar']).optional(),
 });
 
@@ -65,6 +66,11 @@ export const onboardingProfileSchema = z.object({
   lifestyle: z.array(z.string().max(50)).max(15).optional(),
   interests: z.array(z.string().max(50)).max(20).optional(),
   personalityPrompts: z.array(personalityPromptSchema).max(3).optional(),
+  photos: z.array(z.string().max(2048)).max(6).optional(),
+  smoking: z.string().max(30).optional(),
+  drinking: z.string().max(30).optional(),
+  exercise: z.string().max(30).optional(),
+  height: z.number().int().min(100).max(250).optional(),
   city: z.string().max(100).optional(),
   country: z.string().length(2).optional(),
 });

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { handleApiError, AppError, ErrorCodes } from '@/lib/api/errors';
 import { apiSuccess } from '@/lib/api/response';
 import { requireCurrentUser } from '@/lib/auth/guard';
-import { getMatchForUser } from '@/lib/matches';
+import { getMatchForUser, getMatchChatContext } from '@/lib/matches';
 import { unmatchUsers } from '@/lib/date-requests';
 
 type Params = { params: Promise<{ id: string }> };
@@ -19,6 +19,7 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     const other = match.userAId === user.id ? match.userB : match.userA;
+    const chatContext = await getMatchChatContext(id, user.id);
 
     return apiSuccess({
       id: match.id,
@@ -29,6 +30,8 @@ export async function GET(request: Request, { params }: Params) {
         avatarUrl: other.avatarUrl,
         verified: other.verified,
       },
+      canSendMessage: chatContext?.canSendMessage ?? true,
+      ladiesFirstHint: chatContext?.ladiesFirstHint ?? null,
     });
   } catch (error) {
     return handleApiError(error);

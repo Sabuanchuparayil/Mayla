@@ -34,6 +34,10 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     privacyControls: 'Privacy controls',
     refresh: 'Refresh',
     noMoreProfiles: 'No more profiles nearby',
+    chatPlaceholder: 'Type something sweet…',
+    chatConnecting: 'Connecting…',
+    chatLadiesFirst: 'Waiting for her to message first…',
+    chatEmptyHint: 'Send the first message to break the ice',
   },
   tl: {
     discover: 'Tuklasin',
