@@ -72,7 +72,7 @@ export async function getLikesYou(userId: string): Promise<{
     total: likes.length,
     canReveal,
     referralReveal,
-    inviteToReveal: !canReveal && hasBlurredLikes,
+    inviteToReveal: !canReveal && !referralReveal && hasBlurredLikes,
   };
 }
 
