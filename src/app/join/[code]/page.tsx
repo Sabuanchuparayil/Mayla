@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url,
       siteName: 'Mayla',
       type: 'website',
-      images: [{ url: '/pwa-icons/icon-512.png', width: 512, height: 512, alt: 'Mayla' }],
+      images: [{ url: '/pwa-icons?size=512', width: 512, height: 512, alt: 'Mayla' }],
     },
     twitter: {
       card: 'summary_large_image',

@@ -27,7 +27,8 @@ export const metadata: Metadata = {
   description: 'Selfie-verified social discovery for the Middle East. Every profile, every photo — real.',
   manifest: '/manifest.webmanifest',
   icons: {
-    apple: '/pwa-icons?size=192',
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/apple-icon', sizes: '180x180', type: 'image/png' }],
   },
   appleWebApp: {
     capable: true,

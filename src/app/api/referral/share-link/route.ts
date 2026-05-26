@@ -19,7 +19,7 @@ export async function GET(request: Request) {
         title: 'Join Mayla — verified social discovery',
         description: `${stats.code} — invite-only access for expats in the Middle East`,
         url: buildInviteLink(stats.code),
-        image: `${getAppBaseUrl()}/pwa-icons/icon-512.png`,
+        image: `${getAppBaseUrl()}/pwa-icons?size=512`,
       },
     });
   } catch (error) {
