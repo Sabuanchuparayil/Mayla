@@ -10,26 +10,29 @@ type LikeEntry = {
   displayName: string;
   photos: string[];
   blurred: boolean;
+  canLikeBack: boolean;
   likedAt: string;
   compatibilityHint: string | null;
 };
 
 export function LikesYouInbox() {
   const [likes, setLikes] = useState<LikeEntry[]>([]);
-  const [canReveal, setCanReveal] = useState(false);
+  const [canRevealAll, setCanRevealAll] = useState(false);
+  const [referralReveal, setReferralReveal] = useState(false);
   const [inviteToReveal, setInviteToReveal] = useState(false);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch<{ likes: LikeEntry[]; canReveal: boolean; total: number; inviteToReveal?: boolean }>(
+    apiFetch<{ likes: LikeEntry[]; canReveal: boolean; referralReveal: boolean; total: number; inviteToReveal?: boolean }>(
       '/api/discover/likes-you',
     ).then(
       (r) => {
         setLoading(false);
         if (r.success) {
           setLikes(r.data.likes);
-          setCanReveal(r.data.canReveal);
+          setCanRevealAll(r.data.canReveal);
+          setReferralReveal(r.data.referralReveal);
           setInviteToReveal(Boolean(r.data.inviteToReveal));
           setTotal(r.data.total);
         }
@@ -58,16 +61,14 @@ export function LikesYouInbox() {
         <h2 className="font-[family-name:var(--font-playfair)] text-lg font-semibold">
           Likes You {total > 0 ? `(${total})` : ''}
         </h2>
-        {!canReveal ? (
-          inviteToReveal ? (
-            <Button href="/settings#invite" size="sm" variant="outline">
-              Invite 1 friend to reveal
-            </Button>
-          ) : (
-            <Button href="/settings" size="sm" variant="outline">
-              Upgrade to reveal
-            </Button>
-          )
+        {inviteToReveal ? (
+          <Button href="/settings#invite" size="sm" variant="outline">
+            Invite 1 friend to reveal
+          </Button>
+        ) : !canRevealAll && total > 0 ? (
+          <Button href="/settings" size="sm" variant="outline">
+            {referralReveal ? 'Upgrade to reveal all' : 'Upgrade to reveal'}
+          </Button>
         ) : null}
       </div>
 
@@ -93,7 +94,7 @@ export function LikesYouInbox() {
                   <p className="text-xs text-muted-foreground">{like.compatibilityHint}</p>
                 ) : null}
               </div>
-              {canReveal ? (
+              {like.canLikeBack ? (
                 <Button size="sm" onClick={() => void likeBack(like.userId)}>
                   Like back
                 </Button>

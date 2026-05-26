@@ -13,6 +13,7 @@ export type LikeEntry = {
   displayName: string;
   photos: string[];
   blurred: boolean;
+  canLikeBack: boolean;
   likedAt: string;
   compatibilityHint: string | null;
 };
@@ -58,6 +59,7 @@ export async function getLikesYou(userId: string): Promise<{
       displayName: revealThis ? (p?.displayName ?? 'Someone') : 'Someone liked you',
       photos: revealThis ? photos : photos.length ? ['blur'] : [],
       blurred: !revealThis,
+      canLikeBack: revealThis,
       likedAt: s.createdAt.toISOString(),
       compatibilityHint: revealThis ? (p?.city ?? null) : null,
     };
