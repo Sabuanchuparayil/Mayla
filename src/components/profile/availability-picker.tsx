@@ -4,7 +4,20 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { SingleSelectChips } from '@/components/ui/chip-select';
 import { apiFetch } from '@/lib/api/client';
-import { AVAILABILITY_DAYS, AVAILABILITY_TIMES } from '@/lib/availability';
+const AVAILABILITY_DAYS = [
+  { value: 'today', label: 'Today' },
+  { value: 'tomorrow', label: 'Tomorrow' },
+  { value: 'friday', label: 'Friday' },
+  { value: 'saturday', label: 'Saturday' },
+  { value: 'sunday', label: 'Sunday' },
+] as const;
+
+const AVAILABILITY_TIMES = [
+  { value: 'morning', label: 'Morning' },
+  { value: 'afternoon', label: 'Afternoon' },
+  { value: 'evening', label: 'Evening' },
+  { value: 'night', label: 'Night' },
+] as const;
 
 type AvailabilityState = {
   availableDay: string | null;
