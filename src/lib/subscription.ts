@@ -5,7 +5,9 @@ export type Tier = 'FREE' | 'GOLD' | 'PLATINUM';
 
 export function isStripeMockMode(): boolean {
   const key = process.env.STRIPE_SECRET_KEY;
-  return !key || key === 'sk_test_mock';
+  if (!key || key.length < 20) return true;
+  if (key.includes('placeholder') || key.includes('mock') || key.includes('dummy')) return true;
+  return false;
 }
 
 const STRIPE_PRICES: Record<'GOLD' | 'PLATINUM', string | undefined> = {
