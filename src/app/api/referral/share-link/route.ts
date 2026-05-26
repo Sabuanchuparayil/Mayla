@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { handleApiError } from '@/lib/api/errors';
 import { apiSuccess } from '@/lib/api/response';
 import { requireCurrentUser } from '@/lib/auth/guard';
+import { getAppBaseUrl } from '@/lib/app-url';
 import { buildInviteLink, buildWhatsAppShareText, getReferralStats } from '@/lib/referral';
 
 export async function GET(request: Request) {
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
         title: 'Join Mayla — verified social discovery',
         description: `${stats.code} — invite-only access for expats in the Middle East`,
         url: buildInviteLink(stats.code),
-        image: `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/pwa-icons/icon-512.png`,
+        image: `${getAppBaseUrl()}/pwa-icons/icon-512.png`,
       },
     });
   } catch (error) {

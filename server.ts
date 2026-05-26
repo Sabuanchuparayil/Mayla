@@ -52,7 +52,7 @@ app.prepare().then(() => {
 
   const io = new SocketIOServer(server, {
     cors: {
-      origin: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+      origin: process.env.APP_ORIGIN ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
       credentials: true,
     },
     path: '/socket.io',

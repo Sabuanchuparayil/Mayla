@@ -1,7 +1,7 @@
 # Mayla — Manual Testing Guide
 
 **Version:** May 2026 (includes Referral & Squad system)  
-**App URL:** https://mayla.204.168.235.151.sslip.io  
+**App URL:** https://mayla.seeglob.com  
 **Platform:** Progressive Web App (PWA) — test on mobile Safari/Chrome and desktop
 
 ---

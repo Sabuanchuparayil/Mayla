@@ -37,6 +37,7 @@ export async function GET(request: Request) {
           role: true,
           verified: true,
           onboardingCompleted: true,
+          suspendedAt: true,
           createdAt: true,
           lastLoginAt: true,
           referralCode: true,

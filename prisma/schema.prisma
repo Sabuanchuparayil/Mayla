@@ -20,6 +20,7 @@ model User {
   role                Role      @default(USER)
   verified            Boolean   @default(false)
   onboardingCompleted Boolean   @default(false)
+  suspendedAt         DateTime?
   emailVerified       Boolean   @default(false)
   lastLoginAt         DateTime?
   createdAt           DateTime  @default(now())

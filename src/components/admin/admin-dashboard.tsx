@@ -27,6 +27,7 @@ type UserRow = {
   role: string;
   verified: boolean;
   onboardingCompleted: boolean;
+  suspendedAt: string | null;
   createdAt: string;
   lastLoginAt: string | null;
   referralCode: string | null;
@@ -299,7 +300,8 @@ export function AdminDashboard({ initialStats }: { initialStats: { userCount: nu
                     <td className="py-2 pr-3">{u._count.matchesAsA + u._count.matchesAsB}</td>
                     <td className="py-2 pr-3 space-x-1">
                       {!u.verified ? <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, { verified: true })}>Verify</Button> : null}
-                      {u.role !== 'ADMIN' ? <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, { suspended: true })}>Suspend</Button> : null}
+                      {u.role !== 'ADMIN' && !u.suspendedAt ? <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, { suspended: true })}>Suspend</Button> : null}
+                      {u.role !== 'ADMIN' && u.suspendedAt ? <Button size="sm" variant="outline" onClick={() => void updateUser(u.id, { unsuspend: true })}>Unsuspend</Button> : null}
                       {u.role !== 'ADMIN' ? <Button size="sm" variant="danger" onClick={() => void deleteUser(u.id)}>Delete</Button> : null}
                     </td>
                   </tr>

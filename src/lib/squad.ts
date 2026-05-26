@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { AppError, ErrorCodes } from '@/lib/api/errors';
+import { getAppBaseUrl } from '@/lib/app-url';
 import { generateUniqueReferralCode } from '@/lib/referral';
 
 export const SQUAD_UNLOCK_MEMBERS = 3;
@@ -44,10 +45,6 @@ export type SquadDiscoverProfile = {
   vouchCount: number;
   vouchedBy: string[];
 };
-
-function getAppBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-}
 
 export async function createSquad(userId: string, name: string): Promise<SquadSummary> {
   const trimmed = name.trim();

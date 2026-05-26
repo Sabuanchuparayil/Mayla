@@ -1,3 +1,4 @@
+import { getAppBaseUrl } from '@/lib/app-url';
 import { db } from '@/lib/db';
 import { getStripe } from '@/lib/stripe';
 
@@ -79,7 +80,7 @@ export async function createCheckoutSession(
   await ensureSubscription(userId);
   const existing = await db.subscription.findUnique({ where: { userId } });
   const stripe = getStripe();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppBaseUrl();
 
   let customerId = existing?.stripeCustomerId ?? undefined;
   if (!customerId) {

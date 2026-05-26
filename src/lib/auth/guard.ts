@@ -46,6 +46,10 @@ export async function getCurrentUser(request: Request): Promise<SafeUser | null>
   const user = await db.user.findUnique({ where: { id: session.sub } });
   if (!user) return null;
 
+  if (user.suspendedAt) {
+    throw new AppError(ErrorCodes.FORBIDDEN, 'Account suspended', 403);
+  }
+
   return toSafeUser(user);
 }
 

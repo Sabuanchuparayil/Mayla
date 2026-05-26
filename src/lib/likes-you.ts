@@ -65,12 +65,14 @@ export async function getLikesYou(userId: string): Promise<{
     };
   });
 
+  const hasBlurredLikes = likes.some((l) => l.blurred);
+
   return {
     likes,
     total: likes.length,
     canReveal,
     referralReveal,
-    inviteToReveal: !canReveal && !referralReveal && likes.length > 0,
+    inviteToReveal: !canReveal && hasBlurredLikes,
   };
 }
 

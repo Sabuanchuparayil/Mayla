@@ -16,7 +16,9 @@ export function useSocket() {
       .then((body) => {
         if (!active || !body.success) return;
 
-        const url = process.env.NEXT_PUBLIC_WS_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? '';
+        const url =
+          process.env.NEXT_PUBLIC_WS_URL ||
+          (typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL ?? '');
         instance = io(url, {
           path: '/socket.io',
           auth: { token: body.data.token },

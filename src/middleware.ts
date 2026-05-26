@@ -33,7 +33,9 @@ const publicPaths = [
   '/api/auth/logout',
   '/api/auth/socket-token',
   '/api/health',
+  '/api/referral/preview',
   '/api/webhooks/stripe',
+  '/join',
   '/manifest.webmanifest',
   '/sw.js',
 ];

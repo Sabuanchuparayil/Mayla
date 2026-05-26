@@ -50,9 +50,9 @@ function sanitizeCode(raw: string): string {
   return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 16);
 }
 
-export function getAppBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-}
+import { getAppBaseUrl } from '@/lib/app-url';
+
+export { getAppBaseUrl } from '@/lib/app-url';
 
 export function buildInviteLink(code: string): string {
   return `${getAppBaseUrl()}/join/${encodeURIComponent(code)}`;

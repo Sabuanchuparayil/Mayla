@@ -12,6 +12,7 @@ const userUpdateSchema = z.object({
   verified: z.boolean().optional(),
   onboardingCompleted: z.boolean().optional(),
   suspended: z.boolean().optional(),
+  unsuspend: z.boolean().optional(),
 });
 
 type Params = { params: Promise<{ id: string }> };
@@ -75,13 +76,16 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.verified !== undefined) data.verified = body.verified;
     if (body.onboardingCompleted !== undefined) data.onboardingCompleted = body.onboardingCompleted;
     if (body.suspended === true) {
-      data.onboardingCompleted = false;
+      data.suspendedAt = new Date();
+    }
+    if (body.unsuspend === true) {
+      data.suspendedAt = null;
     }
 
     const user = await db.user.update({
       where: { id },
       data,
-      select: { id: true, email: true, name: true, role: true, verified: true, onboardingCompleted: true },
+      select: { id: true, email: true, name: true, role: true, verified: true, onboardingCompleted: true, suspendedAt: true },
     });
 
     return apiSuccess({ user });
