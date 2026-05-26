@@ -27,7 +27,6 @@ export async function getLikesYou(userId: string): Promise<{
   const tier = await getUserTier(userId);
   const canReveal = tierFeatures(tier).seeWhoLikedYou;
   const referralReveal = !canReveal ? await hasReferralReveal(userId) : false;
-  const effectiveReveal = canReveal || referralReveal;
 
   const incomingLikes = await db.swipe.findMany({
     where: { toUserId: userId, action: 'LIKE' },
@@ -53,7 +52,7 @@ export async function getLikesYou(userId: string): Promise<{
   const likes: LikeEntry[] = pending.map((s, index) => {
     const p = profileMap.get(s.fromUserId);
     const photos = parseJsonArray(p?.photos);
-    const revealThis = effectiveReveal || (referralReveal && index === 0);
+    const revealThis = canReveal || (referralReveal && index === 0);
     return {
       userId: s.fromUserId,
       displayName: revealThis ? (p?.displayName ?? 'Someone') : 'Someone liked you',
@@ -67,9 +66,9 @@ export async function getLikesYou(userId: string): Promise<{
   return {
     likes,
     total: likes.length,
-    canReveal: effectiveReveal,
+    canReveal,
     referralReveal,
-    inviteToReveal: !effectiveReveal && likes.length > 0,
+    inviteToReveal: !canReveal && !referralReveal && likes.length > 0,
   };
 }
 
