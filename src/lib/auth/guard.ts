@@ -36,6 +36,10 @@ export async function requireAdmin(request: Request): Promise<TokenPayload> {
   if (session.role !== 'ADMIN') {
     throw new AppError(ErrorCodes.FORBIDDEN, 'Admin access required', 403);
   }
+  const user = await db.user.findUnique({ where: { id: session.sub }, select: { suspendedAt: true } });
+  if (user?.suspendedAt) {
+    throw new AppError(ErrorCodes.FORBIDDEN, 'Account suspended', 403);
+  }
   return session;
 }
 

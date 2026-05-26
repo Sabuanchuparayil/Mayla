@@ -71,6 +71,12 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params;
     const body = parseBody(userUpdateSchema, await request.json());
 
+    const target = await db.user.findUnique({ where: { id }, select: { role: true } });
+    if (!target) throw new AppError(ErrorCodes.NOT_FOUND, 'User not found', 404);
+    if (target.role === 'ADMIN' && (body.suspended || body.unsuspend)) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'Cannot suspend admin users', 403);
+    }
+
     const data: Record<string, unknown> = {};
     if (body.role !== undefined) data.role = body.role;
     if (body.verified !== undefined) data.verified = body.verified;
