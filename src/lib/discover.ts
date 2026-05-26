@@ -212,6 +212,18 @@ export async function getDiscoverFeed(
     ).map((s) => s.userId),
   );
 
+  const priorityBoostUsers = new Set(
+    (
+      await db.user.findMany({
+        where: {
+          id: { in: profiles.map((p) => p.userId) },
+          priorityBoostUntil: { gt: new Date() },
+        },
+        select: { id: true },
+      })
+    ).map((u) => u.id),
+  );
+
   const distanceMap = new Map(nearby.map((p) => [p.userId, p.distanceMeters]));
 
   const incognitoIds = profiles.filter((p) => p.incognitoMode).map((p) => p.userId);
@@ -319,6 +331,9 @@ export async function getDiscoverFeed(
         platinumUserIds.has(p.userId)
       ) {
         blendedScore += 12;
+      }
+      if (priorityBoostUsers.has(p.userId)) {
+        blendedScore += 8;
       }
 
       const available = isAvailabilityActive(p.availableExpiry);

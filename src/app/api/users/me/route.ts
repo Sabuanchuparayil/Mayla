@@ -12,6 +12,8 @@ import { clearAuthCookies, getRefreshTokenFromCookies } from '@/lib/auth/cookies
 import { revokeRefreshToken } from '@/lib/auth/session';
 import { verifyRefreshToken } from '@/lib/auth/jwt';
 import { ensureSubscription } from '@/lib/subscription';
+import { applyReferralCode, completeReferralForUser, ensureReferralCode } from '@/lib/referral';
+import { joinSquadByCode } from '@/lib/squad';
 import { db } from '@/lib/db';
 
 export async function GET(request: Request) {
@@ -75,6 +77,7 @@ export async function PUT(request: Request) {
       });
 
       await ensureSubscription(user.id);
+      await ensureReferralCode(user.id);
       await createAuditLog({
         userId: user.id,
         action: AuditActions.ONBOARDING_COMPLETE,
@@ -156,6 +159,25 @@ export async function PUT(request: Request) {
     });
 
     await ensureSubscription(user.id);
+
+    if (body.referralCode) {
+      try {
+        await applyReferralCode(user.id, body.referralCode);
+      } catch {
+        // ignore invalid/expired codes at onboarding
+      }
+    }
+
+    await completeReferralForUser(user.id);
+    await ensureReferralCode(user.id);
+
+    if (body.squadCode) {
+      try {
+        await joinSquadByCode(user.id, body.squadCode);
+      } catch {
+        // ignore invalid squad codes
+      }
+    }
 
     await createAuditLog({
       userId: user.id,

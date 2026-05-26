@@ -43,6 +43,15 @@ model User {
   giftsSent           VirtualGift[] @relation("GiftsSent")
   giftsReceived       VirtualGift[] @relation("GiftsReceived")
   eventRsvps          EventRsvp[]
+  referralCode        String?   @unique
+  referralCodeCustomized Boolean @default(false)
+  referralBadges      Json      @default("[]")
+  priorityBoostUntil  DateTime?
+  referralsMade       Referral[] @relation("referralsMade")
+  referredBy          Referral?  @relation("referredBy")
+  squadsOwned         Squad[]    @relation("squadOwned")
+  squadMemberships    SquadMember[]
+  squadVouches        SquadVouch[]
 
   @@map("users")
 }
@@ -290,6 +299,67 @@ model Subscription {
   @@map("subscriptions")
 }
 
+model Referral {
+  id          String         @id @default(cuid())
+  referrerId  String
+  referredId  String         @unique
+  code        String
+  status      ReferralStatus @default(PENDING)
+  rewardTier  Int            @default(0)
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  referrer    User           @relation("referralsMade", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred    User           @relation("referredBy", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([code])
+  @@map("referrals")
+}
+
+model Squad {
+  id        String        @id @default(cuid())
+  name      String
+  ownerId   String
+  code      String        @unique
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  owner     User          @relation("squadOwned", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   SquadMember[]
+  vouches   SquadVouch[]
+
+  @@index([ownerId])
+  @@map("squads")
+}
+
+model SquadMember {
+  id       String    @id @default(cuid())
+  squadId  String
+  userId   String
+  role     SquadRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+  squad    Squad     @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([squadId, userId])
+  @@index([userId])
+  @@map("squad_members")
+}
+
+model SquadVouch {
+  id           String   @id @default(cuid())
+  squadId      String
+  userId       String
+  targetUserId String
+  createdAt    DateTime @default(now())
+  squad        Squad    @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([squadId, userId, targetUserId])
+  @@index([squadId])
+  @@index([targetUserId])
+  @@map("squad_vouches")
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
@@ -375,4 +445,15 @@ enum GiftStatus {
 enum EventRsvpStatus {
   GOING
   INTERESTED
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+}
+
+enum SquadRole {
+  OWNER
+  MEMBER
 }

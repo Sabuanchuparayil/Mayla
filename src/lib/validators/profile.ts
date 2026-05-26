@@ -73,6 +73,8 @@ export const onboardingProfileSchema = z.object({
   height: z.number().int().min(100).max(250).optional(),
   city: z.string().max(100).optional(),
   country: z.string().length(2).optional(),
+  referralCode: z.string().min(4).max(16).optional(),
+  squadCode: z.string().min(4).max(16).optional(),
 });
 
 export const preferencesUpdateSchema = z.object({

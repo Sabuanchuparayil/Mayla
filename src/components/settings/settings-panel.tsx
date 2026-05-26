@@ -14,6 +14,8 @@ import {
   LocaleSelector,
 } from '@/components/settings/privacy-panel';
 import { SafetyCenter } from '@/components/settings/safety-center';
+import { ReferralDashboard } from '@/components/referral/referral-dashboard';
+import { SquadPanel } from '@/components/referral/squad-panel';
 import { apiFetch } from '@/lib/api/client';
 import { useLocale } from '@/hooks/use-locale';
 
@@ -138,6 +140,9 @@ export function SettingsPanel() {
           ) : null}
         </div>
       </Card>
+
+      <ReferralDashboard />
+      <SquadPanel />
 
       <PreferencesPanel />
 

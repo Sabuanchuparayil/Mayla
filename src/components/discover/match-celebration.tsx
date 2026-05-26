@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { CompatibilityBreakdown } from '@/lib/compatibility';
+import { apiFetch } from '@/lib/api/client';
 
 type Profile = {
   displayName: string;
@@ -34,6 +36,14 @@ export function MatchCelebration({
   scoreBreakdown,
   onDismiss,
 }: MatchCelebrationProps) {
+  const [shareLink, setShareLink] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiFetch<{ inviteLink: string }>('/api/referral/share-link').then((r) => {
+      if (r.success) setShareLink(r.data.inviteLink);
+    });
+  }, []);
+
   return (
     <div className="animate-scale-in rounded-2xl border border-primary/10 bg-gradient-to-r from-primary-50 via-primary-100 to-accent-50 p-6 text-center dark:from-primary-900/30 dark:to-accent-900/30">
       <div className="animate-heartbeat mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
@@ -81,13 +91,34 @@ export function MatchCelebration({
           ))}
         </div>
       ) : null}
-      <div className="mt-5 flex justify-center gap-3">
-        <Button href="/chat" size="sm">
-          Say hello
-        </Button>
-        <Button variant="outline" size="sm" onClick={onDismiss}>
-          Keep swiping
-        </Button>
+      <div className="mt-5 flex flex-col items-center gap-3">
+        <div className="flex justify-center gap-3">
+          <Button href="/chat" size="sm">
+            Say hello
+          </Button>
+          <Button variant="outline" size="sm" onClick={onDismiss}>
+            Keep swiping
+          </Button>
+        </div>
+        <p className="max-w-sm text-center text-xs text-muted-foreground">
+          Know someone who&apos;d love Mayla?{' '}
+          <a href="/settings#invite" className="font-medium text-primary underline-offset-2 hover:underline">
+            Share your invite link
+          </a>
+          {shareLink ? (
+            <>
+              {' '}
+              or{' '}
+              <button
+                type="button"
+                className="font-medium text-primary underline-offset-2 hover:underline"
+                onClick={() => void navigator.clipboard.writeText(shareLink)}
+              >
+                copy link
+              </button>
+            </>
+          ) : null}
+        </p>
       </div>
     </div>
   );

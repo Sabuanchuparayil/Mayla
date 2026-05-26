@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { ChipSelect, SingleSelectChips } from '@/components/ui/chip-select';
 import { PromptPicker, type PersonalityPrompt } from '@/components/ui/prompt-picker';
 import { PhotoUpload } from '@/components/profile/photo-upload';
 import { apiFetch } from '@/lib/api/client';
+import { clearStoredInviteCode, readStoredInviteCode, readStoredSquadInvite } from '@/lib/invite-storage';
 import {
   RELATIONSHIP_GOALS,
   GENDERS,
@@ -52,6 +53,8 @@ type FormData = {
   photos: string[];
   personalityPrompts: PersonalityPrompt[];
   city: string;
+  referralCode: string;
+  squadCode: string;
 };
 
 export function OnboardingForm({ defaultName }: { defaultName?: string | null }) {
@@ -79,7 +82,21 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
     photos: [],
     personalityPrompts: [],
     city: '',
+    referralCode: '',
+    squadCode: '',
   });
+
+  useEffect(() => {
+    const stored = readStoredInviteCode();
+    const isSquad = readStoredSquadInvite();
+    if (stored) {
+      setForm((prev) => ({
+        ...prev,
+        referralCode: isSquad ? prev.referralCode : stored,
+        squadCode: isSquad ? stored : prev.squadCode,
+      }));
+    }
+  }, []);
 
   function update<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -131,6 +148,8 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
         personalityPrompts: form.personalityPrompts.filter((p) => p.answer.trim()),
         city: form.city || undefined,
         country: form.nationality.length === 2 && form.nationality !== 'OTHER' ? form.nationality : 'AE',
+        referralCode: form.referralCode || undefined,
+        squadCode: form.squadCode || undefined,
       }),
     });
 
@@ -141,6 +160,7 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
       return;
     }
 
+    clearStoredInviteCode();
     router.push('/dashboard');
     router.refresh();
   }
@@ -209,6 +229,18 @@ export function OnboardingForm({ defaultName }: { defaultName?: string | null })
                 value={form.gender || null}
                 onChange={(v) => update('gender', v)}
               />
+            </div>
+            <div>
+              <Label htmlFor="referralCode">Got an invite code? (optional)</Label>
+              <Input
+                id="referralCode"
+                placeholder="SARA7K2M"
+                value={form.referralCode}
+                onChange={(e) => update('referralCode', e.target.value.toUpperCase())}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                From a friend who invited you — unlocks a free Gold day when you finish.
+              </p>
             </div>
           </>
         ) : null}

@@ -7,6 +7,7 @@ import { createAuditLog, AuditActions } from '@/lib/auth/audit';
 import { AppError, ErrorCodes } from '@/lib/api/errors';
 import { toSafeUser } from '@/lib/api/response';
 import { normalizePhone, verifyOtp } from '@/lib/otp';
+import { ensureUserReferralCode } from '@/lib/squad';
 import type { LoginInput, SignupInput } from '@/lib/validators/auth';
 
 type AuthMeta = { ip?: string; userAgent?: string };
@@ -37,6 +38,8 @@ export async function registerUser(input: SignupInput, meta: AuthMeta) {
       name: input.name ?? null,
     },
   });
+
+  await ensureUserReferralCode(user.id, input.name);
 
   await createAuditLog({
     userId: user.id,
@@ -101,6 +104,7 @@ export async function loginWithPhone(phone: string, code: string, meta: AuthMeta
     user = await db.user.create({
       data: { phone: normalized },
     });
+    await ensureUserReferralCode(user.id);
     await createAuditLog({
       userId: user.id,
       action: AuditActions.USER_SIGNUP,

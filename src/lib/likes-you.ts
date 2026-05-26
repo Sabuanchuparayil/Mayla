@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { getUserTier, tierFeatures } from '@/lib/subscription';
+import { hasReferralReveal } from '@/lib/referral';
 import { AppError, ErrorCodes } from '@/lib/api/errors';
 
 function parseJsonArray(value: unknown): string[] {
@@ -16,9 +17,17 @@ export type LikeEntry = {
   compatibilityHint: string | null;
 };
 
-export async function getLikesYou(userId: string): Promise<{ likes: LikeEntry[]; total: number; canReveal: boolean }> {
+export async function getLikesYou(userId: string): Promise<{
+  likes: LikeEntry[];
+  total: number;
+  canReveal: boolean;
+  referralReveal: boolean;
+  inviteToReveal: boolean;
+}> {
   const tier = await getUserTier(userId);
   const canReveal = tierFeatures(tier).seeWhoLikedYou;
+  const referralReveal = !canReveal ? await hasReferralReveal(userId) : false;
+  const effectiveReveal = canReveal || referralReveal;
 
   const incomingLikes = await db.swipe.findMany({
     where: { toUserId: userId, action: 'LIKE' },
@@ -41,20 +50,27 @@ export async function getLikesYou(userId: string): Promise<{ likes: LikeEntry[];
   });
   const profileMap = new Map(profiles.map((p) => [p.userId, p]));
 
-  const likes: LikeEntry[] = pending.map((s) => {
+  const likes: LikeEntry[] = pending.map((s, index) => {
     const p = profileMap.get(s.fromUserId);
     const photos = parseJsonArray(p?.photos);
+    const revealThis = effectiveReveal || (referralReveal && index === 0);
     return {
       userId: s.fromUserId,
-      displayName: canReveal ? (p?.displayName ?? 'Someone') : 'Someone liked you',
-      photos: canReveal ? photos : photos.length ? ['blur'] : [],
-      blurred: !canReveal,
+      displayName: revealThis ? (p?.displayName ?? 'Someone') : 'Someone liked you',
+      photos: revealThis ? photos : photos.length ? ['blur'] : [],
+      blurred: !revealThis,
       likedAt: s.createdAt.toISOString(),
-      compatibilityHint: canReveal ? (p?.city ?? null) : null,
+      compatibilityHint: revealThis ? (p?.city ?? null) : null,
     };
   });
 
-  return { likes, total: likes.length, canReveal };
+  return {
+    likes,
+    total: likes.length,
+    canReveal: effectiveReveal,
+    referralReveal,
+    inviteToReveal: !effectiveReveal && likes.length > 0,
+  };
 }
 
 export async function likeBack(userId: string, targetUserId: string) {
