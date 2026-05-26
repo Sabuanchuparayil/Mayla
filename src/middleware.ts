@@ -18,7 +18,7 @@ const csp = [
   "frame-ancestors 'self'",
 ].join('; ');
 
-const publicPaths = [
+const publicExactPaths = [
   '/',
   '/login',
   '/signup',
@@ -33,12 +33,13 @@ const publicPaths = [
   '/api/auth/logout',
   '/api/auth/socket-token',
   '/api/health',
-  '/api/referral/preview',
   '/api/webhooks/stripe',
-  '/join',
   '/manifest.webmanifest',
   '/sw.js',
 ];
+
+/** Public for the path and all subpaths (e.g. /join/ABC123, /api/referral/preview/CODE). */
+const publicPrefixPaths = ['/join', '/api/referral/preview'];
 
 const authPaths = ['/login', '/signup', '/verify'];
 
@@ -48,9 +49,10 @@ function isSafeRedirect(path: string): boolean {
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === '/verify') return true;
-  return publicPaths
-    .filter((path) => path !== '/verify')
-    .some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  if (publicExactPaths.includes(pathname)) return true;
+  return publicPrefixPaths.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
 
 function isAuthPath(pathname: string): boolean {

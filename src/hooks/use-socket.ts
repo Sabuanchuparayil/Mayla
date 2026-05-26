@@ -3,6 +3,20 @@
 import { useEffect, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
+const LOCALHOST_APP_URL = /^https?:\/\/localhost(:\d+)?$/i;
+
+/** Prefer explicit WS URL; skip localhost baked in at Docker build time. */
+function getSocketUrl(): string {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl && !LOCALHOST_APP_URL.test(appUrl)) {
+    return appUrl.replace(/^http/i, 'ws');
+  }
+  return window.location.origin;
+}
+
 export function useSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
@@ -16,10 +30,7 @@ export function useSocket() {
       .then((body) => {
         if (!active || !body.success) return;
 
-        const url =
-          process.env.NEXT_PUBLIC_WS_URL ||
-          (typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL ?? '');
-        instance = io(url, {
+        instance = io(getSocketUrl(), {
           path: '/socket.io',
           auth: { token: body.data.token },
           transports: ['websocket', 'polling'],
